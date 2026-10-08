@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import json
 import uuid
@@ -56,7 +57,10 @@ class FrameCollector:
             raise ValueError("invalid fragment indices")
         if not isinstance(checksum, str) or len(checksum) != 64:
             raise ValueError("invalid checksum")
-        chunk = base64.b64decode(body['data'], validate=True)
+        try:
+            chunk = base64.b64decode(body['data'], validate=True)
+        except (binascii.Error, ValueError, TypeError, KeyError) as exc:
+            raise ValueError("invalid fragment encoding") from exc
         if len(chunk) > CHUNK_BYTES:
             raise ValueError("oversized fragment")
         meta = (count, checksum)

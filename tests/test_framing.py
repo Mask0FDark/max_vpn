@@ -30,6 +30,14 @@ class TransportTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             FrameCollector().accept(PREFIX + '{}')
 
+    def test_reject_malformed_base64(self):
+        import json
+        frame = encode_frames(b'diagnostic')[0]
+        body = json.loads(frame[len(PREFIX):])
+        body['data'] = '!invalid base64!'
+        with self.assertRaises(ValueError):
+            FrameCollector().accept(PREFIX + json.dumps(body))
+
     def test_reject_oversized_packet(self):
         with self.assertRaises(ValueError):
             encode_frames(b'x' * (1200 * 257))

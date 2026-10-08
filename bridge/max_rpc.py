@@ -6,6 +6,7 @@ automation profile. No credentials, cookies, or profile data are exported.
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import time
 import uuid
@@ -32,6 +33,10 @@ def make_envelope(kind: str, payload: bytes, request_id: str | None = None, *,
         raise ValueError("sender and recipient must be supplied together")
     if sender is not None and (sender not in ROLES or recipient not in ROLES or sender == recipient):
         raise ValueError("invalid message route")
+    if sender == "mobile" and kind != "request":
+        raise ValueError("only the mobile client sends requests")
+    if sender == "host" and kind == "request":
+        raise ValueError("the host sends responses, not requests")
     body = {"version": 1, "kind": kind, "request_id": request_id,
             "payload": base64.b64encode(payload).decode("ascii")}
     if sender is not None:
@@ -51,10 +56,12 @@ def parse_envelope(data: bytes) -> dict:
             raise ValueError("incomplete message route")
         if sender is not None and (sender not in ROLES or recipient not in ROLES or sender == recipient):
             raise ValueError("invalid message route")
+        if (sender == "mobile" and raw["kind"] != "request") or (sender == "host" and raw["kind"] == "request"):
+            raise ValueError("invalid role for message kind")
         return {"kind":raw["kind"], "request_id":rid,
                 "sender":sender, "recipient":recipient,
                 "payload":base64.b64decode(raw["payload"], validate=True)}
-    except (KeyError, ValueError, TypeError, UnicodeDecodeError) as exc:
+    except (KeyError, ValueError, TypeError, UnicodeDecodeError, binascii.Error) as exc:
         raise ValueError("invalid envelope") from exc
 
 class MaxMessageTransport:

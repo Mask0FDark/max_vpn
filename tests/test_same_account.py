@@ -49,6 +49,17 @@ class SameAccountTests(unittest.TestCase):
         self.assertEqual(phone.receive(), [])
         self.assertEqual(host.receive(), [])
 
+    def test_direction_is_not_invertible(self):
+        with self.assertRaises(ValueError):
+            make_envelope("response", b"x", sender="mobile", recipient="host")
+        with self.assertRaises(ValueError):
+            make_envelope("request", b"x", sender="host", recipient="mobile")
+
+    def test_malformed_envelope_is_rejected(self):
+        malformed = b'{"version":1,"kind":"request","request_id":"' + b'a'*32 + b'","sender":"mobile","recipient":"host","payload":"NOT-BASE64!"}'
+        with self.assertRaises(ValueError):
+            parse_envelope(malformed)
+
     def test_unrouted_legacy_messages_ignored(self):
         chat = SharedAccountChat()
         legacy = MaxMessageTransport(chat)
