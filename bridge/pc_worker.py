@@ -109,7 +109,7 @@ def run(automation_root: Path, *, poll_seconds: float = 2.0) -> None:
     config.require("debug", "send_debug")
     accounts = AccountRegistry.load(automation_root / "config" / "accounts.json", automation_root)
     with MaxWeb(config, accounts.get("technical"), accounts) as web:
-        transport = MaxMessageTransport(web)
+        transport = MaxMessageTransport(web, role="host")
         # Ignore visible old frames; do not repeat previous TCP requests on restart.
         transport.seen_frames.update(
             frame for message in web.read_debug_messages(100)

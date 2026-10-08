@@ -33,7 +33,8 @@ class MainActivity : Activity() {
         root.addView(heading)
         status = label("", 22f, Color.rgb(255, 187, 108))
         root.addView(status)
-        root.addView(label("Подключение через личный MAX пока разрабатывается.", 17f, Color.rgb(190, 205, 225)))
+        root.addView(label("Один аккаунт MAX на телефоне и ПК. Второй аккаунт не нужен.", 18f, Color.rgb(190, 205, 225)))
+        root.addView(label("На ПК работает экспериментальный обмен сообщениями. Авторизация MAX внутри приложения и интернет-туннель пока не подключены.", 15f, Color.rgb(190, 205, 225)))
         root.addView(label("MAX VPN помогает с белыми списками. Другие ограничения он не снимает.", 15f, Color.rgb(190, 205, 225)))
         permissionButton = Button(this).apply {
             text = "Проверить разрешение VPN"

@@ -15,11 +15,17 @@ system-wide proxy, a production relay, or an Android network connection.
 
 ## PC-only diagnostic setup
 
-Use two **separately authorized browser profiles** that can access the same
-consented technical test chat. Do not run multiple Playwright contexts against
-the same persistent profile. This diagnostic depends on the separate
-`max_automation` installation; account profiles, chat settings, and
-credentials are never stored here.
+Use **one MAX account** signed in on the PC host and the phone. Two devices
+may have distinct local browser/app sessions, but no second MAX user account
+is required. The messages are synchronized into the same account history.
+The protocol distinguishes `mobile -> host` requests from `host -> mobile`
+responses so neither device processes its own packets.
+
+For PC-only diagnostics, a second local browser profile can emulate the phone,
+with the **same MAX login**. Do not launch two Playwright browsers using the
+same persistent profile directory at once. The test needs an independent
+`max_automation` installation. Credentials, sessions, and chat settings stay
+outside this repository.
 
 1. Install Python 3.12+ and `pip install -r requirements-test.txt`.
 2. Provide `MAX_VPN_SHARED_SECRET` as a randomly generated, private,
@@ -29,7 +35,7 @@ credentials are never stored here.
    installation.
 4. Run the PC handler with
    `python -m bridge.pc_worker --automation-root <automation-directory>`.
-5. In the other authorized profile, test a bounded request with
+5. In the other device session, logged into the same account, test a bounded request with
    `python -m bridge.pc_client --automation-root <automation-directory> --account technical --host 127.0.0.1 --port <test-port> --text PING`.
 
 This exchanges one short TCP request and one response. Each MAX message may

@@ -1,7 +1,7 @@
-"""Diagnostic PC client for a separate authenticated MAX account.
+"""Diagnostic client emulating the phone on the SAME MAX account as the PC.
 
-This is one bounded TCP request/response over MAX messages, not a VPN client.
-The remote PC worker must already be running with the same private shared key.
+Two independent app sessions synchronize one authorized MAX chat. This is
+one bounded TCP request/response, not a complete phone VPN client.
 """
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def run(automation_root: Path, account_key: str, host: str, port: int, data: byt
     config.require("debug", "send_debug")
     accounts = AccountRegistry.load(automation_root / "config" / "accounts.json", automation_root)
     with MaxWeb(config, accounts.get(account_key), accounts) as web:
-        reply = PCClient(MaxMessageTransport(web), secret).exchange(host, port, data)
+        reply = PCClient(MaxMessageTransport(web, role="mobile"), secret).exchange(host, port, data)
     print("MAX_PC_RESPONSE_BYTES", len(reply))
     print(reply.decode("utf-8", errors="replace"))
 
