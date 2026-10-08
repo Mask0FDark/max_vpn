@@ -9,11 +9,14 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
+
+from server.relay import router as relay_router
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 SITE = Path(__file__).resolve().parents[1] / "site"
 
 app = FastAPI(title="MAX VPN", docs_url=None, redoc_url=None, openapi_url=None)
+app.include_router(relay_router)
 
 @app.middleware("http")
 async def security(request: Request, call_next):
