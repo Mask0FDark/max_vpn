@@ -10,9 +10,15 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: android-actions/setup-android@v3
-      - name: Install NDK
-        run: yes | sdkmanager --install 'ndk;26.3.11579264' >/dev/null
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install NDK using preinstalled runner Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --sdk_root="$ANDROID_HOME" --install 'ndk;26.3.11579264' < /dev/null
       - name: Fetch pinned upstream and compile for API 24
         shell: bash
         run: |
