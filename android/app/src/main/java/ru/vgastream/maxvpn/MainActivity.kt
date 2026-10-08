@@ -103,6 +103,40 @@ class MainActivity : Activity() {
         }
         root.addView(permissionButton)
 
+        root.addView(Button(this).apply {
+            text = "Привязать VPS по одноразовому коду"
+            setOnClickListener {
+                val input = EditText(this@MainActivity).apply {
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    hint = "24-значный код"
+                    isSingleLine = true
+                }
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Привязка своего VPS")
+                    .setMessage("Введи одноразовый код, выданный на твоём сервере. Это не SMS MAX и не пароль.")
+                    .setView(input)
+                    .setPositiveButton("Привязать") { _, _ ->
+                        val code = input.text.toString()
+                        status.text = "● Проверяю код через HTTPS..."
+                        Thread({
+                            val worked = try {
+                                RelaySettings.pair(applicationContext, code)
+                                true
+                            } catch (_: Exception) {
+                                false
+                            }
+                            runOnUiThread {
+                                Toast.makeText(this@MainActivity,
+                                    if (worked) "VPS привязан, можно подключаться" else "Код неверный, истёк или нет HTTPS",
+                                    Toast.LENGTH_LONG).show()
+                                refreshStatus()
+                            }
+                        }, "maxvpn-device-pairing").start()
+                    }
+                    .setNegativeButton("Отмена", null)
+                    .show()
+            }
+        })
         root.addView(label("Личный MAX-аккаунт можно открыть отдельно в официальном MAX Web. Этот вход пока не связан с VPS-туннелем.", 14f))
         root.addView(Button(this).apply {
             text = "Войти в MAX Web"

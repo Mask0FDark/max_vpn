@@ -4,6 +4,12 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -32,6 +38,30 @@ object RelaySettings {
         return generator.generateKey()
     }
 
+    /** Exchange an owner-issued one-time code over verified HTTPS. Never log it. */
+    fun pair(context: Context, rawCode: String) {
+        val code = rawCode.trim().lowercase()
+        require(Regex("[0-9a-f]{24}").matches(code)) { "Invalid pairing code" }
+        val requestBody = JSONObject().put("code", code).toString()
+            .toRequestBody("application/json; charset=utf-8".toMediaType())
+        val client = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build()
+        try {
+            val request = Request.Builder()
+                .url("https://max-vpn.mask-0f-darkness.ru/api/pair")
+                .post(requestBody).build()
+            client.newCall(request).execute().use { response ->
+                check(response.isSuccessful) { "Pairing was rejected" }
+                val json = JSONObject(response.body?.string() ?: "")
+                check(json.optString("mode") == "direct_vps_https")
+                val token = json.getString("token")
+                save(context, token)
+            }
+        } finally {
+            client.dispatcher.executorService.shutdown()
+            client.connectionPool.evictAll()
+        }
+    }
+
     fun save(context: Context, token: String) {
         require(token.length in 40..128 && token.all { it.isLetterOrDigit() || it == '_' || it == '-' }) {
             "Invalid private pairing key"
@@ -45,7 +75,7 @@ object RelaySettings {
 
     fun load(context: Context): String {
         val encrypted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
-            ?: return BuildConfig.RELAY_TOKEN
+            ?: return ""
         try {
             val data = Base64.decode(encrypted, Base64.NO_WRAP)
             if (data.size < 28) return ""

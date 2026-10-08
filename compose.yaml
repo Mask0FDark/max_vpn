@@ -8,6 +8,8 @@ services:
     init: true
     environment:
       MAXVPN_RELAY_TOKEN: ${MAXVPN_RELAY_TOKEN:-}
+    volumes:
+      - ./private-data:/app/private-data:rw
     read_only: true
     security_opt:
       - no-new-privileges:true

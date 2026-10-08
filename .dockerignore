@@ -5,6 +5,7 @@ __pycache__
 .env
 .env.*
 data/
+private-data/
 LOCAL_OPERATOR_NOTES.md
 android/
 bridge/

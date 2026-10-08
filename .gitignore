@@ -10,6 +10,7 @@
 *token*
 profiles/
 sessions/
+private-data/
 data/
 .idea/
 .gradle/
