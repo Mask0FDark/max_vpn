@@ -6,6 +6,8 @@ services:
     container_name: maxvpn-web
     restart: unless-stopped
     init: true
+    environment:
+      MAXVPN_RELAY_TOKEN: ${MAXVPN_RELAY_TOKEN:-}
     read_only: true
     security_opt:
       - no-new-privileges:true
