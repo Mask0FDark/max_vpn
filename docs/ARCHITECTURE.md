@@ -10,4 +10,6 @@ The public MAX developer API documented at https://dev.max.ru/docs-api is a **bo
 
 The `site/` is a self-contained static frontend.
 
+PC account sign-in prototype: a localhost-only Companion opens official MAX Web in a local persistent Edge profile (as in `max-automation/authorize.py`). `companion.max_chat` can reuse this own profile after the login browser has closed, restricted to one explicitly supplied MAX test chat. The Android app has a local official MAX WebView login screen, but the stored WebView session is not yet wired into a VPN data plane. No official delegated-user OAuth is claimed.
+
 Before enabling VPN: verify bidirectional MAX transport during allowlist conditions; account isolation; authentication; encryption; relay capacity; traffic filtering; safe logging; rate limits; Android VpnService packet pipeline; build/release tests.
