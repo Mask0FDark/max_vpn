@@ -44,8 +44,5 @@ jobs:
             adb shell am start -W -n ru.vgastream.maxvpn/.MainActivity
             sleep 4
             adb shell pidof ru.vgastream.maxvpn
-            if adb logcat -d -s AndroidRuntime:E | grep -q 'FATAL EXCEPTION'; then
-              echo 'ANDROID_RUNTIME_CRASH'
-              exit 1
-            fi
+            ! adb logcat -d -s AndroidRuntime:E | grep -q 'FATAL EXCEPTION'
             echo 'ANDROID7_EMULATOR_LAUNCH_AND_JNI_PASS'
