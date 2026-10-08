@@ -63,6 +63,16 @@ async def upstream_stream(ws: WebSocket, reader: asyncio.StreamReader, writer: a
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
+@router.websocket("/relay/check")
+async def check(ws: WebSocket):
+    if not authorized(ws.headers):
+        await ws.close(code=1008)
+        return
+    await ws.accept()
+    await ws.send_text("paired")
+    await ws.close()
+
+
 @router.websocket("/relay/tcp")
 async def tcp(ws: WebSocket, host: str, port: int):
     if not authorized(ws.headers):

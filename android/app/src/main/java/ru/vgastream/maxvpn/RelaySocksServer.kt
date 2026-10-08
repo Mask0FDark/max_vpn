@@ -66,6 +66,28 @@ class RelaySocksServer(private val vpn: VpnService, private val token: String) {
         .build()
     private var server: ServerSocket? = null
 
+    /** Verify HTTPS, certificate, and server authorization before activating TUN. */
+    fun preflight() {
+        val ready = CountDownLatch(1)
+        val authorized = AtomicBoolean(false)
+        val webSocket = http.newWebSocket(request("/relay/check"), object : WebSocketListener() {
+            override fun onMessage(ws: WebSocket, text: String) {
+                if (text == "paired") authorized.set(true)
+                ready.countDown()
+                ws.close(1000, "preflight complete")
+            }
+            override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+                ready.countDown()
+            }
+            override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                ready.countDown()
+            }
+        })
+        val completed = ready.await(20, TimeUnit.SECONDS)
+        webSocket.cancel()
+        if (!completed || !authorized.get()) throw IllegalStateException("VPS key or network unavailable")
+    }
+
     fun start(): Int {
         check(alive.compareAndSet(false, true))
         server = ServerSocket(0, 32, loopback)

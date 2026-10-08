@@ -29,6 +29,12 @@ class RelayTests(unittest.TestCase):
                         pass
                 self.assertEqual(bad.exception.code, 1008)
 
+    def test_pairing_probe_authentication(self):
+        with patch.dict(os.environ, {"MAXVPN_RELAY_TOKEN": "x" * 50}):
+            with TestClient(app) as client:
+                with client.websocket_connect("/relay/check", headers={"X-MAXVPN-Token": "x" * 50}) as ws:
+                    self.assertEqual(ws.receive_text(), "paired")
+
     def test_no_internal_ip(self):
         import asyncio
         import socket

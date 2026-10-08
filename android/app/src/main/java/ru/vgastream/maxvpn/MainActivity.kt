@@ -1,6 +1,7 @@
 package ru.vgastream.maxvpn
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -10,7 +11,10 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.widget.Button
+import android.widget.EditText
+import android.widget.Toast
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -46,6 +50,30 @@ class MainActivity : Activity() {
         status = label("", 20f, Color.rgb(255, 187, 108))
         root.addView(status)
         root.addView(label("VPS HTTPS — прямое защищённое подключение. Передача через сообщения MAX пока не подключена.", 16f))
+        root.addView(Button(this).apply {
+            text = "Настроить личный ключ VPS"
+            setOnClickListener {
+                val input = EditText(this@MainActivity).apply {
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    hint = "Личный ключ подключения"
+                }
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Привязка к VPS")
+                    .setMessage("Этот ключ выдаётся администратором своего VPS. Он не является паролем MAX.")
+                    .setView(input)
+                    .setPositiveButton("Сохранить") { _, _ ->
+                        try {
+                            RelaySettings.save(this@MainActivity, input.text.toString().trim())
+                            Toast.makeText(this@MainActivity, "Ключ сохранён в Android Keystore", Toast.LENGTH_SHORT).show()
+                        } catch (_: Exception) {
+                            Toast.makeText(this@MainActivity, "Неверный формат ключа", Toast.LENGTH_LONG).show()
+                        }
+                        refreshStatus()
+                    }
+                    .setNegativeButton("Отмена", null)
+                    .show()
+            }
+        })
         connectButton = Button(this).apply {
             text = "Подключить VPS"
             setOnClickListener {
@@ -119,11 +147,11 @@ class MainActivity : Activity() {
     private fun refreshStatus() {
         status.text = "● " + MaxVpnService.status
         permissionButton.isEnabled = VpnService.prepare(this) != null
-        connectButton.isEnabled = BuildConfig.RELAY_TOKEN.length >= 40
+        connectButton.isEnabled = RelaySettings.load(this).length >= 40
         connectButton.text = if (MaxVpnService.status.startsWith("Подключено") ||
             MaxVpnService.status == "Запуск VPN...") "Отключить VPS" else "Подключить через VPS HTTPS"
         if (!connectButton.isEnabled) status.text =
-            "● Эта сборка не привязана к серверу: требуется персональный ключ"
+            "● Введите личный ключ VPS для включения прямого VPN"
     }
 
     companion object {

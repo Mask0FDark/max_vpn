@@ -30,7 +30,8 @@ class MaxVpnService : VpnService() {
             return START_NOT_STICKY
         }
         if (active.get()) return START_STICKY
-        if (BuildConfig.RELAY_TOKEN.length < 40) {
+        val pairingToken = RelaySettings.load(this)
+        if (pairingToken.length < 40) {
             status = "Нет ключа подключения VPS; интернет не перенаправлен"
             stopSelf()
             return START_NOT_STICKY
@@ -62,9 +63,11 @@ class MaxVpnService : VpnService() {
         Thread({
             try {
                 active.set(true)
-                val localSocks = RelaySocksServer(this, BuildConfig.RELAY_TOKEN)
-                val port = localSocks.start()
+                val localSocks = RelaySocksServer(this, pairingToken)
                 socks = localSocks
+                status = "Проверка доступа к VPS..."
+                localSocks.preflight()
+                val port = localSocks.start()
                 val builder = Builder()
                     .setSession("MAX VPN — VPS HTTPS")
                     .setMtu(1500)
@@ -96,8 +99,8 @@ class MaxVpnService : VpnService() {
                     }
                 }, "maxvpn-tun2socks").apply { isDaemon = true; start() }
             } catch (_: Exception) {
-                status = "Ошибка запуска VPN; соединение не установлено"
                 teardown()
+                status = "VPS недоступен либо ключ неверный; VPN не включён"
                 stopSelf()
             }
         }, "maxvpn-start").start()
