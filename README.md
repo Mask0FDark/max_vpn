@@ -1,5 +1,7 @@
 # MAX VPN
 
+**Android 0.2 network prototype:** native TUN→SOCKS5 for Android 7+, authenticated direct HTTPS WebSocket relay on VPS. **This direct VPS mode does not use MAX messages.** Android UI needs a private pairing key; public builds contain none and do not connect. [Android data-plane and limitations](docs/ANDROID_DATA_PLANE.md). An Android end-to-end internet browsing test is still needed.
+
 В экспериментальном транспорте реализованы длительные TCP-сессии через зашифрованные сообщения MAX и локальный HTTP CONNECT адаптер. Проверены как на имитации синхронизируемого чата, так и через настоящий MAX Web (один тестовый аккаунт на одном ПК): TCP open/write/read/close, локальный HTTP GET 200 OK и внешний HTTPS к `example.com:443` с проверенным сертификатом и HTTP 200 OK. Проверки независимых устройств и Android VPN остаются невыполненными. [Технические подробности](docs/STATEFUL_TCP.md).
 
 **Серверный прототип развёрнут:** https://max-vpn.mask-0f-darkness.ru/ — отдельный Docker-контейнер на VPS, собственный nginx-vhost и Let's Encrypt. Публичная страница и `/health` работают, но авторизация MAX и VPN-туннель ещё не включены; не вводите коды и пароли MAX на сторонних страницах.
