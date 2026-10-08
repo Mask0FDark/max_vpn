@@ -9,6 +9,20 @@ class CompanionWorkerTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_shared_key()
 
+    def test_session_mode_uses_persistent_worker(self):
+        browser = Mock()
+        browser.read_debug_messages.return_value = []
+        browser_cm = Mock()
+        browser_cm.__enter__ = Mock(return_value=browser)
+        browser_cm.__exit__ = Mock(return_value=False)
+        with patch.dict("os.environ", {"MAX_VPN_SHARED_SECRET": "q" * 40}):
+            with patch("companion.worker.CompanionMaxChat", return_value=browser_cm):
+                with patch("companion.worker.SessionPCWorker") as factory:
+                    factory.return_value.process_sync.side_effect = StopIteration("stop")
+                    with self.assertRaises(StopIteration):
+                        run("-321", sessions=True)
+                    factory.return_value.close.assert_called_once_with()
+
     def test_worker_uses_local_companion_browser_profile(self):
         browser = Mock()
         browser.read_debug_messages.return_value = []
