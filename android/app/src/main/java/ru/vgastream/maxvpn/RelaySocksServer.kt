@@ -54,10 +54,12 @@ class RelaySocksServer(private val vpn: VpnService, private val token: String) {
     private val loopback = InetAddress.getByName("127.0.0.1")
     private val http = OkHttpClient.Builder()
         .socketFactory(VpnSocketFactory(vpn))
-        .dns(Dns { host ->
-            if (host == "max-vpn.mask-0f-darkness.ru")
-                listOf(InetAddress.getByAddress(byteArrayOf(135.toByte(), 106, 168.toByte(), 43)))
-            else Dns.SYSTEM.lookup(host)
+        .dns(object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> {
+                return if (hostname == "max-vpn.mask-0f-darkness.ru")
+                    listOf(InetAddress.getByAddress(byteArrayOf(135.toByte(), 106, 168.toByte(), 43)))
+                else Dns.SYSTEM.lookup(hostname)
+            }
         })
         .connectTimeout(15, TimeUnit.SECONDS)
         .pingInterval(20, TimeUnit.SECONDS)
