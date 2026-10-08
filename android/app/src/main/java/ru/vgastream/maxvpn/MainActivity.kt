@@ -55,7 +55,7 @@ class MainActivity : Activity() {
         root.addView(Button(this).apply {
             text = "Сайт проекта"
             setOnClickListener {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://max-vpn.vga-stream.ru")))
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Mask0FDark/max_vpn")))
             }
         })
         setContentView(root)
