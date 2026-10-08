@@ -1,0 +1,14 @@
+.git
+.github
+__pycache__
+*.pyc
+.env
+.env.*
+data/
+LOCAL_OPERATOR_NOTES.md
+android/
+bridge/
+companion/
+tests/
+docs/
+*.apk
