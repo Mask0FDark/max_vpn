@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "bridge/**"
+      - "companion/**"
+      - "server/**"
+      - "site/remote.html"
       - "tests/**"
       - "requirements-test.txt"
       - ".github/workflows/python-tests.yml"
@@ -25,4 +28,4 @@ jobs:
       - name: Run unit and local TCP tests
         run: python -m unittest discover -s tests -v
       - name: Check Python files
-        run: python -m compileall -q bridge
+        run: python -m compileall -q bridge companion server
