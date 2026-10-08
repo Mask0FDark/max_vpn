@@ -1,0 +1,57 @@
+name: Build Android 7 tun2socks library
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android24:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+      - name: Install NDK
+        run: yes | sdkmanager --install 'ndk;26.3.11579264' >/dev/null
+      - name: Fetch pinned upstream and compile for API 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 2.18.0 --recurse-submodules --shallow-submodules https://github.com/heiher/hev-socks5-tunnel.git "$RUNNER_TEMP/hev"
+          sed -i 's/APP_PLATFORM := android-29/APP_PLATFORM := android-24/' "$RUNNER_TEMP/hev/Application.mk"
+          "$ANDROID_HOME/ndk/26.3.11579264/ndk-build" -j 4 \
+            NDK_PROJECT_PATH="$RUNNER_TEMP/hev" \
+            APP_BUILD_SCRIPT="$RUNNER_TEMP/hev/Android.mk" \
+            NDK_APPLICATION_MK="$RUNNER_TEMP/hev/Application.mk"
+      - name: Package AAR and validate all ABI binaries
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          import os
+          original = Path("android/app/libs/hev-socks5-tunnel.aar")
+          output = Path("hev-socks5-tunnel-api24.aar")
+          built = Path(os.environ["RUNNER_TEMP"])/"hev"/"libs"
+          abis = ("armeabi-v7a","arm64-v8a","x86","x86_64")
+          with zipfile.ZipFile(original) as src, zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as dst:
+              for name in src.namelist():
+                  if name.endswith("/") or name.startswith("jni/"):
+                      continue
+                  data = src.read(name)
+                  if name == "AndroidManifest.xml":
+                      data=data.replace(b'minSdkVersion="29"', b'minSdkVersion="24"')
+                      assert b'minSdkVersion="24"' in data
+                  dst.writestr(name,data)
+              for abi in abis:
+                  so = built/abi/"libhev-socks5-tunnel.so"
+                  assert so.is_file() and so.stat().st_size > 50000, str(so)
+                  dst.write(so,f"jni/{abi}/libhev-socks5-tunnel.so")
+          with zipfile.ZipFile(output) as z:
+              assert z.testzip() is None
+              print("TUN2SOCKS_ANDROID_7_AAR_PASS", output.stat().st_size)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hev-socks5-tunnel-api24
+          path: hev-socks5-tunnel-api24.aar
+          if-no-files-found: error
