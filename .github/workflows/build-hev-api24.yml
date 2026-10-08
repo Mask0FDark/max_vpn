@@ -18,7 +18,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --sdk_root="$ANDROID_HOME" --install 'ndk;26.3.11579264' < /dev/null
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install 'ndk;26.3.11579264' < /dev/null
       - name: Fetch pinned upstream and compile for API 24
         shell: bash
         run: |
