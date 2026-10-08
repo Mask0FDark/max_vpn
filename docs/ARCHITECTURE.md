@@ -2,7 +2,7 @@
 
 Architecture is planned, not deployed: Android VpnService -> authenticated per-user MAX message transport -> isolated bridge -> constrained egress -> reply. Each user must use their **own MAX account**.
 
-**Only allowlist restrictions may be bypassed.** A remote egress does not automatically preserve an operator's other restrictions. No connection until independently enforced DNS, domain, IP filtering and fail-closed tests have been implemented; do not claim otherwise.
+**Product scope:** designed to restore access to the ordinary internet under allowlist-only connectivity conditions. It is not advertised as a general unblocker, and access to otherwise blocked resources is not promised. This is a capability statement, not an engineering requirement to recreate or enforce external network blocks. Do not advertise a functioning VPN until actual end-to-end tests pass.
 
 MAX personal Web automation in Mask0FDark/max-automation is not an official delegated sign-in. Never collect a user's password, SMS code, session cookie or browser profile on this site. Evaluate supported account delegation before adding login.
 

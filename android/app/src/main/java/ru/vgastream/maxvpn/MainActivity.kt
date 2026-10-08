@@ -29,7 +29,7 @@ class MainActivity : Activity() {
   root.addView(heading)
   root.addView(label("○  VPN не подключён", 22f, Color.rgb(255, 187, 108)))
   root.addView(label("Прототип: канал через MAX и вход в личный аккаунт ещё недоступны.", 17f, Color.rgb(190, 205, 225)))
-  root.addView(label("Только для режима белых списков. Все остальные ограничения должны сохраняться; серверная проверка пока не готова.", 15f, Color.rgb(190, 205, 225)))
+  root.addView(label("MAX VPN предназначен для доступа к интернету при белых списках. Другие ограничения он не снимает.", 15f, Color.rgb(190, 205, 225)))
   root.addView(Button(this).apply { text = "Подключение недоступно"; isEnabled = false })
   root.addView(Button(this).apply {
    text = "Сайт проекта"
