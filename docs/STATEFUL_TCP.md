@@ -30,11 +30,14 @@ python -m bridge.connect_over_session --chat-id <ID_вашего_тестово�
 
 `127.0.0.1:18765` — адрес локального HTTP CONNECT клиента. Не запускайте одновременно два Playwright-контекста на одном браузерном профиле. Оба участника должны быть видимы в одном разрешённом тестовом чате, который MAX синхронизирует между устройствами. Вышеприведённые команды пока **не проверены на реальной паре устройств**.
 
+**Внешний HTTPS подтверждён:** проверка `tools/probe_live_https.py` через тот же технический чат MAX открыла TCP на `example.com:443`, установила TLS с проверкой сертификата и получила HTTP 200 OK (`MAX_LIVE_HTTPS_OPEN_PASS`, `MAX_LIVE_HTTPS_TLS_VERIFIED`, `MAX_LIVE_HTTPS_GET_200_PASS`), время 10,78 с. Это всё ещё один ПК, а не телефон и VPS одновременно.
+
 **Повторить проверку на настоящем MAX Web:** при наличии уже авторизованной отдельной автоматизации `max_automation` и разрешённого отладочного чата можно запустить:
 
 ```powershell
 $env:PYTHONPATH = 'D:\\Projects\\max_vpn;D:\\MAX'
 python -m tools.probe_live_sessions --automation-root D:\\MAX
+python -m tools.probe_live_https --automation-root D:\\MAX --target example.com
 ```
 
 Этот скрипт не запрашивает пароль и не экспортирует сессию браузера; запускается на компьютере с уже авторизованным тестовым профилем.

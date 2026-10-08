@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- На настоящем MAX Web проверено внешнее HTTPS-соединение к `example.com:443` через новый протокол: TCP open, TLS с проверкой сертификата и HTTP 200 OK за 10,78 с. Отдельный воспроизводимый скрипт: `tools/probe_live_https.py`.
+- Проверено с VPS, что исходящий HTTPS к example.com доступен (HTTP 200). Транспорт телефона и серверная авторизация всё ещё не реализованы.
+
+
 - Проверен реальный MAX Web с новым протоколом длительных TCP-сессий: `MAX_LIVE_SESSION_OPEN_PASS`, `MAX_LIVE_SESSION_DATA_PASS`, `MAX_LIVE_SESSION_CLOSE_PASS` (5,75 с).
 - Проверен настоящий HTTP GET и ответ 200 OK через зашифрованный MAX Web relay: `MAX_LIVE_HTTP_GET_200_PASS` (5,64 с).
 - Добавлен воспроизводимый ручной скрипт `tools/probe_live_sessions.py` для разрешённого технического чата; это всё ещё один браузер/аккаунт, а не два независимых устройства.
