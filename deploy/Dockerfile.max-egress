@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+RUN pip install --no-cache-dir "maxapi-python==2.4.1" "cryptography>=43,<52" \
+    && groupadd -g 10001 maxvpn && useradd -u 10001 -g maxvpn -M maxvpn
+COPY bridge/ /app/bridge/
+COPY server/__init__.py server/max_egress.py /app/server/
+USER maxvpn
+CMD ["python", "-m", "server.max_egress", "--chat-id", "0", "--session-dir", "/sessions"]

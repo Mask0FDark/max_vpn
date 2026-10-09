@@ -26,3 +26,32 @@ services:
       retries: 3
     mem_limit: 256m
     pids_limit: 128
+
+  maxvpn-max-egress:
+    profiles: ["max"]
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.max-egress
+    container_name: maxvpn-max-egress
+    init: true
+    environment:
+      MAXVPN_RELAY_TOKEN: ${MAXVPN_RELAY_TOKEN:-}
+    command:
+      - python
+      - -m
+      - server.max_egress
+      - --chat-id
+      - "${MAXVPN_CHAT_ID:-0}"
+      - --session-dir
+      - /sessions
+    volumes:
+      - ./private-data/max-sessions:/sessions:rw
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    mem_limit: 512m
+    pids_limit: 96
