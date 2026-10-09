@@ -23,7 +23,7 @@ class PublicServerTests(unittest.TestCase):
     def test_page_and_static_style(self):
         page = self.client.get('/')
         self.assertEqual(page.status_code, 200)
-        self.assertIn('СЕРВЕРНАЯ ВЕРСИЯ',page.text)
+        self.assertIn('MAX VPN / ANDROID PREVIEW',page.text)
         self.assertNotIn('type="password"', page.text)
         self.assertEqual(self.client.get('/style.css').status_code,200)
 
