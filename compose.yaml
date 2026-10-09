@@ -37,14 +37,11 @@ services:
     init: true
     environment:
       MAXVPN_RELAY_TOKEN: ${MAXVPN_RELAY_TOKEN:-}
-    command:
-      - python
-      - -m
-      - server.max_egress
-      - --chat-id
-      - "${MAXVPN_CHAT_ID:-0}"
-      - --session-dir
-      - /sessions
+      MAXVPN_CHAT_ID: ${MAXVPN_CHAT_ID:-0}
+      MAXVPN_SESSION_DIR: /sessions
+    expose:
+      - "8765"
+    command: ["uvicorn", "server.phone_auth_api:app", "--host", "0.0.0.0", "--port", "8765", "--no-access-log"]
     volumes:
       - ./private-data/max-sessions:/sessions:rw
     read_only: true

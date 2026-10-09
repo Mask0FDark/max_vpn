@@ -68,10 +68,10 @@ class MainActivity : Activity() {
             }
         }
         root.addView(maxButton)
-        root.addView(info("Сначала вход в MAX Web на телефоне и подтверждение MAX на сервере. VPN включается только после проверки ответа через MAX.", 14f))
+        root.addView(info("Вход в MAX: номер → SMS-код → пароль, если его запросит MAX. Сессия сохраняется на VPS.", 14f))
         root.addView(Button(this).apply {
-            text = "Войти в MAX Web"
-            setOnClickListener { startActivity(Intent(this@MainActivity, MaxWebLoginActivity::class.java)) }
+            text = "Войти в MAX по номеру телефона"
+            setOnClickListener { startActivity(Intent(this@MainActivity, MaxPhoneLoginActivity::class.java)) }
         })
 
         root.addView(Button(this).apply {

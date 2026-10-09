@@ -14,6 +14,7 @@
    <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Opt-in private MAX messages VPN transport"/>
    <intent-filter><action android:name="android.net.VpnService"/></intent-filter>
   </service>
+  <activity android:name=".MaxPhoneLoginActivity" android:exported="false"/>
   <activity android:name=".MaxWebLoginActivity" android:exported="false"/>
   <activity android:name=".MainActivity" android:exported="true">
    <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>

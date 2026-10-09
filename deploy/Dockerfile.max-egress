@@ -1,9 +1,9 @@
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
-RUN pip install --no-cache-dir "maxapi-python==2.4.1" "cryptography>=43,<52" \
+RUN pip install --no-cache-dir "maxapi-python==2.4.1" "cryptography>=43,<52" "fastapi==0.143.0" "uvicorn==0.54.0" \
     && groupadd -g 10001 maxvpn && useradd -u 10001 -g maxvpn -M maxvpn
 COPY bridge/ /app/bridge/
-COPY server/__init__.py server/max_egress.py /app/server/
+COPY server/__init__.py server/max_egress.py server/phone_auth.py server/phone_auth_api.py /app/server/
 USER maxvpn
-CMD ["python", "-m", "server.max_egress", "--chat-id", "0", "--session-dir", "/sessions"]
+CMD ["uvicorn", "server.phone_auth_api:app", "--host", "0.0.0.0", "--port", "8765", "--no-access-log"]
