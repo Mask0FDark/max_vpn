@@ -49,6 +49,16 @@ class MainActivity : Activity() {
         root.addView(label("MAX VPN", 32f, Color.WHITE).apply { typeface = Typeface.DEFAULT_BOLD })
         status = label("", 20f, Color.rgb(255, 187, 108))
         root.addView(status)
+        root.addView(Button(this).apply {
+            text = "Скопировать ошибку подключения"
+            setOnClickListener {
+                val message = "MAX VPN 0.3.1 · Android ${Build.VERSION.SDK_INT} · " +
+                    "этап: ${MaxVpnService.stage} · ${MaxVpnService.status}"
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("MAX VPN диагностика", message))
+                Toast.makeText(this@MainActivity, "Диагностика скопирована (без ключа VPS)", Toast.LENGTH_SHORT).show()
+            }
+        })
         root.addView(label("VPS HTTPS — прямое защищённое подключение. Передача через сообщения MAX пока не подключена.", 16f))
         root.addView(Button(this).apply {
             text = "Настроить личный ключ VPS"
@@ -77,7 +87,7 @@ class MainActivity : Activity() {
         connectButton = Button(this).apply {
             text = "Подключить VPS"
             setOnClickListener {
-                if (MaxVpnService.status.startsWith("Подключено") || MaxVpnService.status == "Запуск VPN...") {
+                if (MaxVpnService.isConnected() || MaxVpnService.isBusy()) {
                     startService(Intent(this@MainActivity, MaxVpnService::class.java)
                         .setAction(MaxVpnService.ACTION_STOP))
                 } else {
@@ -182,8 +192,8 @@ class MainActivity : Activity() {
         status.text = "● " + MaxVpnService.status
         permissionButton.isEnabled = VpnService.prepare(this) != null
         connectButton.isEnabled = RelaySettings.load(this).length >= 40
-        connectButton.text = if (MaxVpnService.status.startsWith("Подключено") ||
-            MaxVpnService.status == "Запуск VPN...") "Отключить VPS" else "Подключить через VPS HTTPS"
+        connectButton.text = if (MaxVpnService.isConnected() || MaxVpnService.isBusy())
+            "Отключить VPS" else "Подключить через VPS HTTPS"
         if (!connectButton.isEnabled) status.text =
             "● Введите личный ключ VPS для включения прямого VPN"
     }
