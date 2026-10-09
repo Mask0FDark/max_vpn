@@ -8,7 +8,6 @@ data/
 private-data/
 LOCAL_OPERATOR_NOTES.md
 android/
-bridge/
 companion/
 tests/
 docs/
