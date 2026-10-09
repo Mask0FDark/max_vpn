@@ -17,7 +17,8 @@ class PublicServerTests(unittest.TestCase):
     def test_truthful_status(self):
         response = self.client.get('/api/status')
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.json()['login_available'])
+        self.assertTrue(response.json()['login_available'])
+        self.assertEqual(response.json()['login_method'], 'max_phone_sms_optional_2fa')
         self.assertFalse(response.json()['vpn_available'])
 
     def test_page_and_static_style(self):
