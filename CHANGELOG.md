@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- MAX personal account login: dedicated phone number SMS flow via PyMax Client/SmsAuthFlow on VPS, optional 2FA handled only if MAX asks, session stored in private VPS SQLite, no QR required.
+- Android login UI: MAX phone -> SMS code -> optional password, over paired HTTPS owner-only endpoints. No credentials stored by app and server endpoints return no-store responses; unpaired requests return 403.
+- Note: Android MAX data-plane still uses a separate MAX WebView session, so the complete single-login full VPN remains unverified and should not be advertised as ready.
+
+
 - Android 0.4.0-max-alpha: добавлен отдельный MAX WebView-транспорт и MAX VpnService без подмены прямым HTTPS. Прежде чем создавать TUN, выполняется зашифрованный RPC через MAX; если не подтвердился, интернет на телефоне не перехватывается.
 - Протокол MX2/AES-GCM совместимый с Android 7+, Python MAX worker поддерживает MX1 и MX2; добавлена обработка DNS UDP на публичном 53 порту.
 - 72 Python теста, проверка совместимости AES-GCM Android/Python на Android 7/16; MAX на физическом телефоне и сохранённая VPS-сессия ещё не проверены, поэтому выпуск как готового VPN запрещён.

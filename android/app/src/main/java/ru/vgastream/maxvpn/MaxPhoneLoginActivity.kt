@@ -90,6 +90,7 @@ class MaxPhoneLoginActivity : Activity() {
                 "verifying_code" -> "Проверяю код..."
                 "waiting_password" -> "MAX запросил дополнительный пароль"
                 "verifying_password" -> "Проверяю пароль..."
+                "initializing_chat" -> "Вход принят, проверяю MAX-чат на VPS..."
                 "connected" -> "Вход выполнен. Сессия сохранена на VPS"
                 "transport_error" -> "Вход успешен, но MAX-чат пока недоступен"
                 "error" -> "Ошибка MAX: " + data.optString("detail", "неизвестно")

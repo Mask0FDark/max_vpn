@@ -43,8 +43,9 @@ def health():
 
 @app.get("/api/status")
 def status():
-    return {"service": "maxvpn", "login_available": False,
-            "vpn_available": False, "deployment": "independent"}
+    return {"service": "maxvpn", "login_available": True,
+            "login_method": "max_phone_sms_optional_2fa",
+            "vpn_available": False, "deployment": "experimental"}
 
 
 @app.get("/")

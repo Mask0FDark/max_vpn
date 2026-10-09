@@ -123,7 +123,7 @@ class PhoneAuthentication:
             path.write_text(phone, encoding="ascii")
             if os.name == "posix":
                 path.chmod(0o600)
-            self.phase = "connected"
+            self.phase = "initializing_chat"
             await client.get_chat(self.chat_id)
             adapter = PyMaxHistoryChat(client, self.chat_id, asyncio.get_running_loop())
             transport = MaxMessageTransport(adapter, role="host")
@@ -133,6 +133,7 @@ class PhoneAuthentication:
             )
             runner = SessionRunner()
             worker = SessionPCWorker(transport, read_max_transport_key(), runner)
+            self.phase = "connected"
             print("MAX_PHONE_SESSION_EGRESS_READY", flush=True)
             while True:
                 try:
@@ -149,9 +150,13 @@ class PhoneAuthentication:
             self.phase = "error"
             self.detail = "SMS or password confirmation expired; request a fresh code"
         except Exception as exc:
-            self.phase = "error"
-            # Do not echo vendor errors that might contain a token, phone or code.
-            self.detail = "MAX authorization failed: " + exc.__class__.__name__
+            if self._client is not None:
+                self.phase = "transport_error"
+                self.detail = "MAX login succeeded, but dedicated chat is unavailable"
+            else:
+                self.phase = "error"
+                # Do not echo vendor errors that might contain a token, phone or code.
+                self.detail = "MAX authorization failed: " + exc.__class__.__name__
         finally:
             if runner is not None:
                 await asyncio.to_thread(runner.stop)
