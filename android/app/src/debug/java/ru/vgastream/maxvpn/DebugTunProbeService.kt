@@ -35,10 +35,13 @@ class DebugTunProbeService : VpnService() {
                     "misc:\n  log-level: warn\n  max-session-count: 16\n"
                 )
                 var engineResult = "not_started"
+                val nativeAccepted = java.util.concurrent.atomic.AtomicBoolean(false)
                 val descriptor = tun.fd
                 val engine = Thread({
                     try {
-                        engineResult = "return_" + TProxyService.TProxyStartService(file.absolutePath, descriptor)
+                        val started = TProxyService.TProxyStartService(file.absolutePath, descriptor)
+                        nativeAccepted.set(started)
+                        engineResult = "return_" + started
                     } catch (e: Throwable) {
                         engineResult = e.javaClass.simpleName
                     }
@@ -52,7 +55,8 @@ class DebugTunProbeService : VpnService() {
                     if (!engine.isAlive) break
                     Thread.sleep(200)
                 }
-                if (!started) error("Native engine not started: $engineResult")
+                if (!started || !nativeAccepted.get())
+                    error("JNI native start failed: $engineResult running=$started accepted=${nativeAccepted.get()}")
                 prefs.edit().putString("result", "started").commit()
             } catch (e: Throwable) {
                 prefs.edit().putString("result", e.javaClass.simpleName + ":" +

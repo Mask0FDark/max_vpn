@@ -20,7 +20,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 class MaxVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private var socks: RelaySocksServer? = null
-    private var nativeThread: Thread? = null
     private val active = AtomicBoolean(false)
     private val stopping = AtomicBoolean(false)
 
@@ -109,20 +108,17 @@ class MaxVpnService : VpnService() {
                     "socks5:\n  address: 127.0.0.1\n  port: $port\n  udp: 'udp'\n" +
                     "misc:\n  log-level: warn\n  max-session-count: 128\n"
                 )
-                nativeThread = Thread({
-                    try {
-                        val ok = TProxyService.TProxyStartService(config.absolutePath, established.fd)
-                        if (active.get() && !stopping.get())
-                            fail("native", IllegalStateException("TUN engine returned: $ok"))
-                    } catch (e: Throwable) {
-                        if (active.get() && !stopping.get()) fail("native", e)
-                    }
-                }, "maxvpn-tun2socks").apply { isDaemon = true; start() }
+                // Upstream JNI (hev-jni.c v2.18.0) starts its OWN pthread.
+                // TProxyStartService returns true on successful start; it does
+                // not block for the life of the tunnel.
+                val started = TProxyService.TProxyStartService(config.absolutePath, established.fd)
+                if (!started) error("Native TUN thread could not start")
 
-                // Native engine startup can take a few seconds on older devices.
+                // Confirm that the native worker is still alive after startup.
+                // Do not mistake a successful boolean return for termination.
                 var running = false
                 for (attempt in 1..20) {
-                    if (!active.get() || nativeThread?.isAlive != true) break
+                    if (!active.get()) break
                     if (TProxyService.TProxyIsRunning()) {
                         running = true
                         break
@@ -130,10 +126,14 @@ class MaxVpnService : VpnService() {
                     Thread.sleep(250)
                 }
                 if (running && active.get()) {
+                    // JNI may report running before its worker validates config.
+                    Thread.sleep(750)
+                    if (!TProxyService.TProxyIsRunning())
+                        error("Native TUN worker stopped during initialization")
                     stage = "connected"
                     status = "Подключено через VPS HTTPS (не MAX)"
                 } else if (active.get()) {
-                    fail("native", IllegalStateException("TUN engine did not start"))
+                    fail("native", IllegalStateException("TUN engine did not remain running"))
                 }
             } catch (e: Throwable) {
                 if (active.get() && !stopping.get()) fail(stage, e)
