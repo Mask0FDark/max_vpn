@@ -26,17 +26,21 @@ MAX_SESSIONS = 8
 
 def encode_command(action: str, *, session: str | None = None, host: str | None = None,
                    port: int | None = None, data: bytes = b"") -> bytes:
-    if action not in ("open", "write", "read", "close"):
+    if action not in ("open", "write", "read", "close", "udp"):
         raise ValueError("unsupported action")
     if type(data) is not bytes or len(data) > CHUNK_LIMIT:
         raise ValueError("oversized command data")
     packet = {"v": 1, "action": action}
-    if action == "open":
+    if action in ("open", "udp"):
         if not host or len(host) > 253 or any(c.isspace() for c in host):
             raise ValueError("invalid host")
         if type(port) is not int or not 1 <= port <= 65535:
             raise ValueError("invalid port")
         packet.update(host=host, port=port)
+        if action == "udp":
+            if port != 53 or not 1 <= len(data) <= 1200:
+                raise ValueError("only bounded public DNS UDP is permitted")
+            packet["data"] = base64.b64encode(data).decode("ascii")
     else:
         if not session or len(session) != 32 or any(c not in "0123456789abcdef" for c in session):
             raise ValueError("invalid session ID")
@@ -147,6 +151,22 @@ class SessionManager:
         for key in list(self.sessions):
             await self.close(key)
 
+    async def exchange_udp(self, host: str, port: int, data: bytes) -> bytes:
+        """Single bounded DNS request; never forward to a private target."""
+        if port != 53 or not 1 <= len(data) <= 1200:
+            raise ValueError("only bounded DNS queries are supported")
+        address = await self._get_address(host, port)
+        family = socket.AF_INET6 if ":" in address else socket.AF_INET
+        sock = socket.socket(family, socket.SOCK_DGRAM)
+        sock.setblocking(False)
+        try:
+            loop = asyncio.get_running_loop()
+            await asyncio.wait_for(loop.sock_connect(sock, (address, port)), 5)
+            await asyncio.wait_for(loop.sock_sendall(sock, data), 5)
+            return await asyncio.wait_for(loop.sock_recv(sock, 1500), 5)
+        finally:
+            sock.close()
+
     async def dispatch(self, request: bytes) -> bytes:
         try:
             obj = json.loads(request)
@@ -154,6 +174,10 @@ class SessionManager:
                 raise ValueError("invalid command version")
             action = obj["action"]
             await self._cleanup()
+            if action == "udp":
+                raw = base64.b64decode(obj["data"], validate=True)
+                response = await self.exchange_udp(obj["host"], obj["port"], raw)
+                return _result(data=base64.b64encode(response).decode("ascii"))
             if action == "open":
                 key = await self.open(obj["host"], obj["port"])
                 return _result(session=key)

@@ -33,6 +33,7 @@ services:
       context: .
       dockerfile: deploy/Dockerfile.max-egress
     container_name: maxvpn-max-egress
+    restart: unless-stopped
     init: true
     environment:
       MAXVPN_RELAY_TOKEN: ${MAXVPN_RELAY_TOKEN:-}

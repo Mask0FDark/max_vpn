@@ -36,6 +36,20 @@ class MaxWebChatTransport(
         main.post { web.loadUrl("https://web.max.ru/$chatId") }
     }
 
+    fun isReady(callback: (Boolean) -> Unit) {
+        main.post {
+            if (!trustedChat()) {
+                callback(false)
+                return@post
+            }
+            web.evaluateJavascript("""
+                (() => Boolean(document.querySelector(
+                  '[data-lexical-editor="true"][role="textbox"], [role="textbox"][contenteditable="true"], [role="textbox"][contenteditable=""]'
+                )))()
+            """.trimIndent()) { value -> callback(value == "true") }
+        }
+    }
+
     fun sendFrame(frame: String, callback: (Boolean) -> Unit) {
         if (!frame.startsWith("M0FD-TUNNEL-V1:") || frame.length > 4000) {
             callback(false)

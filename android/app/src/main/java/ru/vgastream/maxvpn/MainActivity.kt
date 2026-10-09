@@ -2,10 +2,10 @@ package ru.vgastream.maxvpn
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.Typeface
-import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -14,20 +14,23 @@ import android.os.Looper
 import android.text.InputType
 import android.widget.Button
 import android.widget.EditText
-import android.widget.Toast
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 
+/**
+ * MAX message VPN preview. Never substitutes direct VPS HTTPS when MAX is selected.
+ * Fails before TUN if MAX account session or encrypted VPS reply is unavailable.
+ */
 class MainActivity : Activity() {
     private lateinit var status: TextView
-    private lateinit var permissionButton: Button
-    private lateinit var connectButton: Button
+    private lateinit var maxButton: Button
     private val handler = Handler(Looper.getMainLooper())
     private val refresher = object : Runnable {
         override fun run() {
             if (::status.isInitialized) refreshStatus()
-            handler.postDelayed(this, 1500L)
+            handler.postDelayed(this, 1500)
         }
     }
 
@@ -35,171 +38,112 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 32, 32, 32)
-            setBackgroundColor(Color.rgb(9, 18, 34))
+            setPadding(30, 24, 30, 24)
+            setBackgroundColor(Color.rgb(9,18,34))
         }
-        fun label(value: String, size: Float, color: Int = Color.rgb(190, 205, 225)) =
-            TextView(this).apply {
-                text = value
-                textSize = size
-                setTextColor(color)
-                setPadding(0, 12, 0, 12)
-            }
+        fun info(value: String, size: Float = 16f) = TextView(this).apply {
+            text = value
+            textSize = size
+            setTextColor(Color.WHITE)
+            setPadding(0, 12, 0, 12)
+        }
 
-        root.addView(label("MAX VPN", 32f, Color.WHITE).apply { typeface = Typeface.DEFAULT_BOLD })
-        status = label("", 20f, Color.rgb(255, 187, 108))
+        root.addView(info("MAX VPN — через MAX", 30f))
+        status = info("", 19f).apply { setTextColor(Color.rgb(255,182,90)) }
         root.addView(status)
-        root.addView(Button(this).apply {
-            text = "Скопировать ошибку подключения"
+
+        maxButton = Button(this).apply {
+            text = "Подключить через MAX"
             setOnClickListener {
-                val message = "MAX VPN 0.3.1 · Android ${Build.VERSION.SDK_INT} · " +
-                    "этап: ${MaxVpnService.stage} · ${MaxVpnService.status}"
-                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("MAX VPN диагностика", message))
-                Toast.makeText(this@MainActivity, "Диагностика скопирована (без ключа VPS)", Toast.LENGTH_SHORT).show()
-            }
-        })
-        root.addView(label("VPS HTTPS — прямое защищённое подключение. Передача через сообщения MAX пока не подключена.", 16f))
-        root.addView(Button(this).apply {
-            text = "Настроить личный ключ VPS"
-            setOnClickListener {
-                val input = EditText(this@MainActivity).apply {
-                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                    hint = "Личный ключ подключения"
-                }
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Привязка к VPS")
-                    .setMessage("Этот ключ выдаётся администратором своего VPS. Он не является паролем MAX.")
-                    .setView(input)
-                    .setPositiveButton("Сохранить") { _, _ ->
-                        try {
-                            RelaySettings.save(this@MainActivity, input.text.toString().trim())
-                            Toast.makeText(this@MainActivity, "Ключ сохранён в Android Keystore", Toast.LENGTH_SHORT).show()
-                        } catch (_: Exception) {
-                            Toast.makeText(this@MainActivity, "Неверный формат ключа", Toast.LENGTH_LONG).show()
-                        }
-                        refreshStatus()
-                    }
-                    .setNegativeButton("Отмена", null)
-                    .show()
-            }
-        })
-        connectButton = Button(this).apply {
-            text = "Подключить VPS"
-            setOnClickListener {
-                if (MaxVpnService.isConnected() || MaxVpnService.isBusy()) {
-                    startService(Intent(this@MainActivity, MaxVpnService::class.java)
-                        .setAction(MaxVpnService.ACTION_STOP))
+                if (MaxMessageVpnService.connected() || MaxMessageVpnService.busy()) {
+                    startService(Intent(this@MainActivity, MaxMessageVpnService::class.java)
+                        .setAction(MaxMessageVpnService.STOP))
                 } else {
                     val ask = VpnService.prepare(this@MainActivity)
                     if (ask != null) {
                         @Suppress("DEPRECATION")
-                        startActivityForResult(ask, REQUEST_CONNECT)
-                    } else startTunnel()
+                        startActivityForResult(ask, REQ_MAX)
+                    } else startMax()
                 }
             }
         }
-        root.addView(connectButton)
-
-        permissionButton = Button(this).apply {
-            text = "Разрешение Android VPN"
-            setOnClickListener {
-                val ask = VpnService.prepare(this@MainActivity)
-                if (ask != null) {
-                    @Suppress("DEPRECATION")
-                    startActivityForResult(ask, REQUEST_PERMISSION)
-                } else refreshStatus()
-            }
-        }
-        root.addView(permissionButton)
+        root.addView(maxButton)
+        root.addView(info("Сначала вход в MAX Web на телефоне и подтверждение MAX на сервере. VPN включается только после проверки ответа через MAX.", 14f))
+        root.addView(Button(this).apply {
+            text = "Войти в MAX Web"
+            setOnClickListener { startActivity(Intent(this@MainActivity, MaxWebLoginActivity::class.java)) }
+        })
 
         root.addView(Button(this).apply {
             text = "Привязать VPS по одноразовому коду"
             setOnClickListener {
                 val input = EditText(this@MainActivity).apply {
-                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                    hint = "24-значный код"
+                    hint = "24-значный код от владельца сервера"
                     isSingleLine = true
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                 }
                 AlertDialog.Builder(this@MainActivity)
                     .setTitle("Привязка своего VPS")
-                    .setMessage("Введи одноразовый код, выданный на твоём сервере. Это не SMS MAX и не пароль.")
+                    .setMessage("Это не SMS-код и не пароль MAX.")
                     .setView(input)
                     .setPositiveButton("Привязать") { _, _ ->
-                        val code = input.text.toString()
-                        status.text = "● Проверяю код через HTTPS..."
+                        val value = input.text.toString()
                         Thread({
-                            val worked = try {
-                                RelaySettings.pair(applicationContext, code)
+                            val success = try {
+                                RelaySettings.pair(applicationContext, value)
                                 true
-                            } catch (_: Exception) {
-                                false
-                            }
+                            } catch (_: Exception) { false }
                             runOnUiThread {
                                 Toast.makeText(this@MainActivity,
-                                    if (worked) "VPS привязан, можно подключаться" else "Код неверный, истёк или нет HTTPS",
+                                    if (success) "Ключ сохранён в Android Keystore" else
+                                        "Код неверный, истёк или сервер недоступен",
                                     Toast.LENGTH_LONG).show()
                                 refreshStatus()
                             }
-                        }, "maxvpn-device-pairing").start()
-                    }
-                    .setNegativeButton("Отмена", null)
-                    .show()
-            }
-        })
-        root.addView(label("Личный MAX-аккаунт можно открыть отдельно в официальном MAX Web. Этот вход пока не связан с VPS-туннелем.", 14f))
-        root.addView(Button(this).apply {
-            text = "Войти в MAX Web"
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity, MaxWebLoginActivity::class.java))
+                        }, "maxvpn-pair").start()
+                    }.setNegativeButton("Отмена", null).show()
             }
         })
         root.addView(Button(this).apply {
-            text = "Сайт MAX VPN"
+            text = "Скопировать диагностику"
             setOnClickListener {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://max-vpn.mask-0f-darkness.ru/")))
+                val report = "MAX VPN API" + Build.VERSION.SDK_INT +
+                    " этап=" + MaxMessageVpnService.stage + "; " + MaxMessageVpnService.status
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Диагностика MAX VPN", report))
+                Toast.makeText(this@MainActivity,"Диагностика скопирована без ключа",Toast.LENGTH_SHORT).show()
             }
         })
-        root.addView(label("Режим через MAX не реализован. Прямой VPS-режим не гарантирует доступ во время белых списков.", 13f))
+        root.addView(info("Экспериментальная версия. При ошибке связи с MAX Android VPN не включается. Скорость и работа при белых списках ещё не подтверждены.", 13f))
         setContentView(ScrollView(this).apply { addView(root) })
         refreshStatus()
     }
 
-    private fun startTunnel() {
-        val intent = Intent(this, MaxVpnService::class.java).setAction(MaxVpnService.ACTION_CONNECT)
-        if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
+    private fun startMax() {
+        val intent = Intent(this,MaxMessageVpnService::class.java).setAction(MaxMessageVpnService.CONNECT)
+        if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent)
+        else startService(intent)
         refreshStatus()
     }
 
-    override fun onResume() {
-        super.onResume()
-        handler.post(refresher)
-    }
+    override fun onResume() { super.onResume();handler.post(refresher) }
+    override fun onPause() { handler.removeCallbacks(refresher);super.onPause() }
 
-    override fun onPause() {
-        handler.removeCallbacks(refresher)
-        super.onPause()
-    }
-
-    @Deprecated("Legacy result API supports Android 7")
+    @Deprecated("Used for Android 7 VPN permission")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CONNECT && resultCode == RESULT_OK) startTunnel()
+        if (requestCode == REQ_MAX && resultCode == RESULT_OK) startMax()
         refreshStatus()
     }
 
     private fun refreshStatus() {
-        status.text = "● " + MaxVpnService.status
-        permissionButton.isEnabled = VpnService.prepare(this) != null
-        connectButton.isEnabled = RelaySettings.load(this).length >= 40
-        connectButton.text = if (MaxVpnService.isConnected() || MaxVpnService.isBusy())
-            "Отключить VPS" else "Подключить через VPS HTTPS"
-        if (!connectButton.isEnabled) status.text =
-            "● Введите личный ключ VPS для включения прямого VPN"
+        val token = try { RelaySettings.load(this) } catch (_: Exception) { "" }
+        maxButton.isEnabled = token.length >= 40
+        maxButton.text = if (MaxMessageVpnService.connected() || MaxMessageVpnService.busy())
+            "Отключить MAX VPN" else "Подключить через MAX"
+        status.text = if (token.length < 40) "● Сначала привяжи VPS" else
+            "● " + MaxMessageVpnService.status
     }
 
-    companion object {
-        private const val REQUEST_PERMISSION = 1001
-        private const val REQUEST_CONNECT = 1002
-    }
+    companion object { private const val REQ_MAX = 123 }
 }

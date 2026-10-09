@@ -14,7 +14,7 @@ import secrets
 import time
 
 from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305, AESGCM
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -23,20 +23,23 @@ from bridge.max_rpc import MaxMessageTransport
 from bridge.tcp_exchange import execute_request
 
 
-def wrap(secret: bytes, request_id: str, data: bytes) -> bytes:
+def wrap(secret: bytes, request_id: str, data: bytes, *, algorithm: str = "chacha") -> bytes:
     """Encrypt and authenticate one message; bind it to the request id."""
     if len(secret) < 32:
         raise ValueError("shared secret must be at least 32 bytes")
     nonce = secrets.token_bytes(12)
-    cipher = ChaCha20Poly1305(hashlib.sha256(secret).digest())
-    return b"MX1" + nonce + cipher.encrypt(nonce, data, request_id.encode("ascii"))
+    if algorithm not in ("chacha", "aes"):
+        raise ValueError("unsupported authenticated encryption")
+    cipher = (AESGCM if algorithm == "aes" else ChaCha20Poly1305)(hashlib.sha256(secret).digest())
+    header = b"MX2" if algorithm == "aes" else b"MX1"
+    return header + nonce + cipher.encrypt(nonce, data, request_id.encode("ascii"))
 
 
 def unwrap(secret: bytes, request_id: str, wrapped: bytes) -> bytes:
-    if len(secret) < 32 or len(wrapped) < 31 or not wrapped.startswith(b"MX1"):
+    if len(secret) < 32 or len(wrapped) < 31 or wrapped[:3] not in (b"MX1", b"MX2"):
         raise ValueError("invalid encrypted message")
     nonce, ciphertext = wrapped[3:15], wrapped[15:]
-    cipher = ChaCha20Poly1305(hashlib.sha256(secret).digest())
+    cipher = (AESGCM if wrapped[:3] == b"MX2" else ChaCha20Poly1305)(hashlib.sha256(secret).digest())
     try:
         return cipher.decrypt(nonce, ciphertext, request_id.encode("ascii"))
     except InvalidTag as exc:
@@ -50,6 +53,7 @@ class PCWorker:
         self.transport = transport
         self.secret = secret
         self.handled: set[str] = set()
+        self.reply_algorithms: dict[str, str] = {}
 
     def _pending(self) -> list[tuple[str, bytes]]:
         pending = []
@@ -64,12 +68,14 @@ class PCWorker:
             except ValueError:
                 continue
             self.handled.add(rid)
+            self.reply_algorithms[rid] = "aes" if message["payload"].startswith(b"MX2") else "chacha"
             pending.append((rid, payload))
         return pending
 
     def _send_result(self, rid: str, reply: bytes, failed: bool = False) -> None:
         self.transport.send("error" if failed else "response",
-                            wrap(self.secret, rid, reply), rid)
+                            wrap(self.secret, rid, reply,
+                                 algorithm=self.reply_algorithms.pop(rid, "chacha")), rid)
 
     async def process(self) -> int:
         """Async form for in-memory unit tests, without a sync Playwright page."""
