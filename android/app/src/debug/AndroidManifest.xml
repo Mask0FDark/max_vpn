@@ -2,7 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
  <application>
   <service android:name=".DebugTunProbeService" android:exported="false"
+   android:foregroundServiceType="specialUse"
    android:permission="android.permission.BIND_VPN_SERVICE">
+    <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Temporary bounded diagnostic VPN TUN test"/>
    <intent-filter><action android:name="android.net.VpnService"/></intent-filter>
   </service>
  </application>

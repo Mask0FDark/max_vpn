@@ -2,6 +2,10 @@ package ru.vgastream.maxvpn
 
 import android.content.Intent
 import android.net.VpnService
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
 import android.os.IBinder
 import hev.htproxy.TProxyService
 import java.io.File
@@ -9,6 +13,13 @@ import java.io.File
 /** Debug-only isolated TUN/JNI probe: routes only the test subnet. */
 class DebugTunProbeService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (Build.VERSION.SDK_INT >= 26) {
+            val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(NotificationChannel("maxvpn-debug-tun", "VPN debug test", NotificationManager.IMPORTANCE_LOW))
+            startForeground(109, Notification.Builder(this, "maxvpn-debug-tun")
+                .setSmallIcon(android.R.drawable.stat_sys_upload_done)
+                .setContentTitle("Тест TUN").build())
+        }
         Thread({
             var tun: android.os.ParcelFileDescriptor? = null
             val prefs = getSharedPreferences("native-vpn-probe", MODE_PRIVATE)

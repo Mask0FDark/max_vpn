@@ -2,6 +2,11 @@ name: Android 7 device smoke tests
 
 on:
   workflow_dispatch:
+    inputs:
+      api_level:
+        description: 'Android API level for emulator'
+        required: false
+        default: '24'
   push:
     branches: [main]
     paths:
@@ -30,9 +35,9 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 24
+          api-level: ${{ inputs.api_level || '24' }}
           target: default
-          arch: x86
+          arch: ${{ inputs.api_level == '36' && 'x86_64' || 'x86' }}
           profile: pixel
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect

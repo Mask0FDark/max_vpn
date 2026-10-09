@@ -20,7 +20,9 @@ class NativeTunnelSmokeTest {
         assertNull("VPN appops permission required", VpnService.prepare(app))
         val prefs = app.getSharedPreferences("native-vpn-probe", android.content.Context.MODE_PRIVATE)
         prefs.edit().remove("result").commit()
-        app.startService(Intent(app, DebugTunProbeService::class.java))
+        val testIntent = Intent(app, DebugTunProbeService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= 26) app.startForegroundService(testIntent)
+        else app.startService(testIntent)
         var result: String? = null
         repeat(70) {
             result = prefs.getString("result", null)
