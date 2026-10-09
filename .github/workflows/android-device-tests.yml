@@ -37,6 +37,9 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           script: |
+            gradle :android:app:assembleDebug --no-daemon
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell appops set ru.vgastream.maxvpn ACTIVATE_VPN allow
             gradle :android:app:connectedDebugAndroidTest --no-daemon
             # Instrumentation runner removes the target app after finishing on some SDK images.
             gradle :android:app:assembleDebug --no-daemon
