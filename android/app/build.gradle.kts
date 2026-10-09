@@ -8,8 +8,8 @@ android {
   applicationId = "ru.vgastream.maxvpn"
   minSdk = 24
   targetSdk = 35
-  versionCode = 5
-  versionName = "0.3.2-preview"
+  versionCode = 6
+  versionName = "0.4.0-max-alpha"
   testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
  }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
