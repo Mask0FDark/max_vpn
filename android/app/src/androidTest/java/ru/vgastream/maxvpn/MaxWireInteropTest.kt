@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class MaxWireInteropTest {
-    private val fixture = """M0FD-TUNNEL-V1:{"id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","i":0,"n":1,"sha256":"11cef61d90d2b9936b0597b3971fc25073d3aa72d9302cb04267decdcaa34631","data":"eyJ2ZXJzaW9uIjoxLCJraW5kIjoicmVzcG9uc2UiLCJyZXF1ZXN0X2lkIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJwYXlsb2FkIjoiVFZneU1URXhNVEV4TVRFeE1URXhYWlJNWTVCbmRhWDNYNEIvWlYycDdNU3g1Rk14MlpTZ3Vna0o0VjYwbXNXRkdOazM0dGp5bmp1d3FQeVUrUXNQZUZFVzlrSFZGTDQ9Iiwic2VuZGVyIjoiaG9zdCIsInJlY2lwaWVudCI6Im1vYmlsZSJ9"}"""
+    private val fixture = """M0FD-TUNNEL-V1:{"id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","i":0,"n":1,"sha256":"827c7c3cca03dc94e87b433081d6a164e239b412af0da79e6abe936132589b18","data":"eyJ2ZXJzaW9uIjoxLCJraW5kIjoicmVzcG9uc2UiLCJyZXF1ZXN0X2lkIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJwYXlsb2FkIjoiVFZneU1URXhNVEV4TVRFeE1URXhYWlFhTi9ac2FLdllXSlZxWkZ2NGl0eUM0QnBCMTZ5bHJ4eEtoMGE3ak5hZUFjaEs1OGZUYXY0QlpFV3d1eGcvNnJnWVU5K0lNdz09Iiwic2VuZGVyIjoiaG9zdCIsInJlY2lwaWVudCI6Im1vYmlsZSJ9"}"""
 
     @Test fun canDecryptRealPythonMx2Envelope() {
         val codec = MaxWireCodec("t".repeat(64))
