@@ -34,6 +34,11 @@ class PublicServerTests(unittest.TestCase):
         self.assertEqual(response.headers['Cache-Control'],'no-store')
         self.assertIn("default-src 'self'",response.headers['Content-Security-Policy'])
 
+    def test_chat_selection_is_not_public(self):
+        self.assertEqual(self.client.get("/api/max/login/chats").status_code, 403)
+        self.assertEqual(self.client.post("/api/max/login/chat",
+                          json={"chat": 123}).status_code, 403)
+
     def test_unimplemented_login_is_not_exposed(self):
         self.assertEqual(self.client.post('/api/auth/start',json={'phone':'+79990000000'}).status_code,404)
 

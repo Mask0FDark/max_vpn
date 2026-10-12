@@ -36,6 +36,10 @@ class PasswordInput(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class ChatInput(BaseModel):
+    chat: int
+
+
 def make_app(controller: PhoneAuthentication) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -53,6 +57,20 @@ def make_app(controller: PhoneAuthentication) -> FastAPI:
     @app.get("/internal/max/status")
     async def status(x_maxvpn_token: str | None = Header(default=None)):
         require_owner(x_maxvpn_token)
+        return controller.status()
+
+    @app.get("/internal/max/chats")
+    async def chats(x_maxvpn_token: str | None = Header(default=None)):
+        require_owner(x_maxvpn_token)
+        return {"chats": controller.available_chats()}
+
+    @app.post("/internal/max/chat")
+    async def select_chat(body: ChatInput, x_maxvpn_token: str | None = Header(default=None)):
+        require_owner(x_maxvpn_token)
+        try:
+            controller.select_chat(body.chat)
+        except (ValueError, RuntimeError):
+            raise HTTPException(409, "chat_not_available_or_already_selected")
         return controller.status()
 
     @app.post("/internal/max/phone", status_code=202)

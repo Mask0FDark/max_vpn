@@ -31,17 +31,23 @@ class MaxPhoneLoginActivity : Activity() {
     private lateinit var phoneButton: Button
     private lateinit var codeButton: Button
     private lateinit var passwordButton: Button
+    private lateinit var chatButton: Button
     private var phase = ""
+    @Volatile private var closed = false
 
     private val refresh = object : Runnable {
         override fun run() {
-            io.execute {
-                try {
-                    val response = call("status")
-                    runOnUiThread { show(response) }
-                } catch (_: Exception) {}
-            }
-            ui.postDelayed(this, 3500L)
+            if (closed) return
+            try {
+                io.execute {
+                    if (closed) return@execute
+                    try {
+                        val response = call("status")
+                        runOnUiThread { if (!closed) show(response) }
+                    } catch (_: Exception) {}
+                }
+            } catch (_: java.util.concurrent.RejectedExecutionException) {}
+            if (!closed) ui.postDelayed(this, 3500L)
         }
     }
 
@@ -53,7 +59,7 @@ class MaxPhoneLoginActivity : Activity() {
             .header("X-MAXVPN-Token", token)
             .header("Cache-Control", "no-store")
         val request = if (value == null) builder.get().build() else {
-            val body = JSONObject().put(step, value).toString()
+            val body = JSONObject().put(step, if (step == "chat") value.toLong() else value).toString()
                 .toRequestBody("application/json".toMediaType())
             builder.post(body).build()
         }
@@ -70,11 +76,51 @@ class MaxPhoneLoginActivity : Activity() {
         io.execute {
             try {
                 val result = call(step, value)
-                runOnUiThread { show(result) }
+                if (step == "chat") {
+                    getSharedPreferences("vpn-private-settings", MODE_PRIVATE).edit()
+                        .putLong("max_chat_id", value.toLong()).apply()
+                }
+                runOnUiThread { if (!closed) show(result) }
             } catch (e: Exception) {
                 runOnUiThread {
-                    status.text = "Ошибка: " + (e.message ?: "нет соединения").take(110)
+                    if (!closed) status.text = "Ошибка: " + (e.message ?: "нет соединения").take(110)
                 }
+            }
+        }
+    }
+
+    private fun selectAvailableChat() {
+        chatButton.isEnabled = false
+        io.execute {
+            try {
+                val json = call("chats")
+                val array = json.getJSONArray("chats")
+                if (array.length() == 0) error("В аккаунте MAX нет доступных чатов")
+                val ids = LongArray(array.length()) { i -> array.getJSONObject(i).getLong("id") }
+                val labels = Array(array.length()) { i ->
+                    val item = array.getJSONObject(i)
+                    item.optString("title", "Чат") + " (" + item.optString("type") + ")"
+                }
+                runOnUiThread {
+                    if (closed) return@runOnUiThread
+                    android.app.AlertDialog.Builder(this@MaxPhoneLoginActivity)
+                        .setTitle("Выбери чат для VPN")
+                        .setMessage("В выбранный чат будут отправляться зашифрованные технические сообщения. Лучше создать отдельный приватный чат.")
+                        .setSingleChoiceItems(labels, -1) { dialog, which ->
+                            val id = ids[which]
+                            dialog.dismiss()
+                            send("chat", id.toString())
+                        }
+                        .setNegativeButton("Отмена", null)
+                        .show()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    if (!closed) status.text = "Не удалось получить чаты: " +
+                        (e.message ?: "сбой").take(100)
+                }
+            } finally {
+                runOnUiThread { if (!closed) chatButton.isEnabled = true }
             }
         }
     }
@@ -90,6 +136,8 @@ class MaxPhoneLoginActivity : Activity() {
                 "verifying_code" -> "Проверяю код..."
                 "waiting_password" -> "MAX запросил дополнительный пароль"
                 "verifying_password" -> "Проверяю пароль..."
+                "chat_selection_required" -> "MAX авторизован. Выбери чат для служебных зашифрованных сообщений VPN."
+                "initializing_chat" -> "Проверяю выбранный чат MAX..."
                 "initializing_chat" -> "Вход принят, проверяю MAX-чат на VPS..."
                 "connected" -> "Вход выполнен. Сессия сохранена на VPS"
                 "transport_error" -> "Вход успешен, но MAX-чат пока недоступен"
@@ -103,6 +151,7 @@ class MaxPhoneLoginActivity : Activity() {
         codeButton.visibility = code.visibility
         password.visibility = if (next == "waiting_password") View.VISIBLE else View.GONE
         passwordButton.visibility = password.visibility
+        chatButton.visibility = if (next == "chat_selection_required") View.VISIBLE else View.GONE
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -151,6 +200,11 @@ class MaxPhoneLoginActivity : Activity() {
             setOnClickListener { send("password", password.text.toString()); password.text.clear() }
         }
         root.addView(passwordButton)
+        chatButton = Button(this).apply {
+            text = "Выбрать чат для MAX VPN"
+            setOnClickListener { selectAvailableChat() }
+        }
+        root.addView(chatButton)
         root.addView(TextView(this).apply {
             text = "MAX сам запрашивает SMS-код. Код и пароль не сохраняются; сессия остаётся на твоём VPS."
         })
@@ -167,9 +221,16 @@ class MaxPhoneLoginActivity : Activity() {
         super.onPause()
     }
     override fun onDestroy() {
+        closed = true
+        ui.removeCallbacks(refresh)
         io.shutdownNow()
-        api.dispatcher.executorService.shutdown()
-        api.connectionPool.evictAll()
+        // OkHttp evictAll() can close a socket and cause network I/O.
+        // Xiaomi/Android STRICT MODE crashes if it runs on the main thread.
+        Thread({
+            try { api.dispatcher.cancelAll() } catch (_: Exception) {}
+            try { api.connectionPool.evictAll() } catch (_: Exception) {}
+            try { api.dispatcher.executorService.shutdown() } catch (_: Exception) {}
+        }, "maxvpn-auth-http-cleanup").apply { isDaemon = true; start() }
         super.onDestroy()
     }
 }

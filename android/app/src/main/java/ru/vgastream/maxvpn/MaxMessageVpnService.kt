@@ -38,6 +38,13 @@ class MaxMessageVpnService : VpnService() {
             stopSelf()
             return START_NOT_STICKY
         }
+        val selectedChatId = getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
+            .getLong("max_chat_id", 0L)
+        if (selectedChatId == 0L) {
+            teardown("Сначала выбери чат MAX на экране входа")
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (VpnService.prepare(this) != null) {
             teardown("Требуется разрешение Android VPN")
             stopSelf()
@@ -67,7 +74,7 @@ class MaxMessageVpnService : VpnService() {
             try {
                 stage = "max_login"
                 status = "Подключение к авторизованному MAX..."
-                val session = MaxBrowserSession(applicationContext, CHAT_ID)
+                val session = MaxBrowserSession(applicationContext, selectedChatId)
                 browser = session
                 val chat = session.connect()
                 if (!running.get()) return@Thread
@@ -155,9 +162,6 @@ class MaxMessageVpnService : VpnService() {
         const val CONNECT = "ru.vgastream.maxvpn.MAX_CONNECT"
         const val STOP = "ru.vgastream.maxvpn.MAX_STOP"
         private const val CHANNEL = "maxvpn-max-chat"
-        // Dedicated test chat; operator must belong to this chat from the
-        // SAME MAX account on both Android and VPS.
-        private const val CHAT_ID = -76340833015983L
         @Volatile var status = "MAX VPN не подключён"
         @Volatile var stage = "idle"
         fun connected() = stage == "connected"

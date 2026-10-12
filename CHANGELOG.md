@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Android 0.4.2: исправлен NetworkOnMainThreadException при закрытии MaxPhoneLoginActivity на Xiaomi; HTTP cleanup перенесён с главного потока в отдельный поток, добавлен инструментальный Android-тест.
+- После успешной SMS/2FA авторизации сервер больше не требует старый hardcoded MAX chat ID: показывает доступные чаты, даёт пользователю выбрать приватный чат и сохраняет выбор на VPS и телефоне без повторного SMS.
+- Выбор MAX-чата разрешён только авторизованному и привязанному устройству. Полноценный Android WebView MAX -> VPS -> Internet по-прежнему требует реального сквозного теста.
+
+
 - MAX personal account login: dedicated phone number SMS flow via PyMax Client/SmsAuthFlow on VPS, optional 2FA handled only if MAX asks, session stored in private VPS SQLite, no QR required.
 - Android login UI: MAX phone -> SMS code -> optional password, over paired HTTPS owner-only endpoints. No credentials stored by app and server endpoints return no-store responses; unpaired requests return 403.
 - Note: Android MAX data-plane still uses a separate MAX WebView session, so the complete single-login full VPN remains unverified and should not be advertised as ready.

@@ -14,7 +14,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
-STEPS = frozenset(("phone", "code", "password"))
+STEPS = frozenset(("phone", "code", "password", "chat"))
 BACKEND = "http://maxvpn-max-egress:8765/internal/max/"
 
 
@@ -44,6 +44,12 @@ async def login_status(x_maxvpn_token: str | None = Header(default=None)):
     return await proxy_to_max("status", token=x_maxvpn_token)
 
 
+@router.get("/api/max/login/chats")
+async def login_chats(x_maxvpn_token: str | None = Header(default=None)):
+    require_device(x_maxvpn_token)
+    return await proxy_to_max("chats", token=x_maxvpn_token)
+
+
 @router.post("/api/max/login/{step}")
 async def login_step(step: str, request: Request,
                      x_maxvpn_token: str | None = Header(default=None)):
@@ -62,6 +68,11 @@ async def login_step(step: str, request: Request,
         value = json.loads(raw)
     except (ValueError, UnicodeDecodeError):
         raise HTTPException(status_code=422, detail="invalid_JSON")
-    if not isinstance(value, dict) or set(value) != {step} or not isinstance(value[step], str):
+    if not isinstance(value, dict) or set(value) != {step}:
+        raise HTTPException(status_code=422, detail="invalid_login_field")
+    if step == "chat":
+        if type(value[step]) is not int or value[step] == 0:
+            raise HTTPException(status_code=422, detail="invalid_chat_selection")
+    elif not isinstance(value[step], str):
         raise HTTPException(status_code=422, detail="invalid_login_field")
     return await proxy_to_max(step, token=x_maxvpn_token, content=value)

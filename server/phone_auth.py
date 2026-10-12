@@ -37,6 +37,8 @@ class PhoneAuthentication:
         self.throttle: list[float] = []
         self._lock = asyncio.Lock()
         self._client: Any = None
+        self.chat_options: list[dict[str, Any]] = []
+        self.chat_ready: asyncio.Event | None = None
 
     async def begin(self, phone: str) -> None:
         if not PHONE_PATTERN.fullmatch(phone):
@@ -61,6 +63,17 @@ class PhoneAuthentication:
     def status(self) -> dict[str, str]:
         # Do not expose phone or login tokens to callers.
         return {"phase": self.phase, "detail": self.detail}
+
+    def available_chats(self) -> list[dict[str, Any]]:
+        return list(self.chat_options) if self._client is not None else []
+
+    def select_chat(self, selected_id: int) -> None:
+        if type(selected_id) is not int or selected_id not in {c["id"] for c in self.chat_options}:
+            raise ValueError("chat ID not in authenticated account")
+        if self._client is None or self.phase != "chat_selection_required" or self.chat_ready is None:
+            raise RuntimeError("MAX session not awaiting chat selection")
+        self.chat_id = selected_id
+        self.chat_ready.set()
 
     async def get_code(self, phone: str) -> str:
         if phone != self.phone:
@@ -124,7 +137,38 @@ class PhoneAuthentication:
             if os.name == "posix":
                 path.chmod(0o600)
             self.phase = "initializing_chat"
-            await client.get_chat(self.chat_id)
+            # The legacy hardcoded chat belongs to a different account.
+            # Never fail an authorized session because of that old ID.
+            options = await client.fetch_chats()
+            self.chat_options = sorted([
+                {"id": int(chat.id), "title": str(chat.title or "Диалог")[:72],
+                 "type": str(getattr(chat.type, "value", chat.type))}
+                for chat in options
+                if isinstance(chat.id, int) and chat.id != 0
+                and str(getattr(chat.type, "value", chat.type)) in ("DIALOG", "CHAT")
+            ], key=lambda item: ("избран" not in item["title"].lower(), item["title"].lower()))
+            if not self.chat_options:
+                raise ValueError("MAX account has no selectable chats")
+            stored = self.dir / "chat-id.txt"
+            try:
+                saved_id = int(stored.read_text(encoding="ascii").strip())
+            except (OSError, ValueError):
+                saved_id = 0
+            if saved_id not in {chat["id"] for chat in self.chat_options}:
+                self.chat_ready = asyncio.Event()
+                self.phase = "chat_selection_required"
+                # Keep MAX authenticated while the owner selects a chat.
+                await self.chat_ready.wait()
+            self.phase = "initializing_chat"
+            # Selection already validated against fresh fetch_chats() results.
+            # Re-querying get_chat() here can fail even for synced dialogs.
+            if self.chat_ready:
+                stored.write_text(str(self.chat_id), encoding="ascii")
+                if os.name == "posix":
+                    stored.chmod(0o600)
+            else:
+                self.chat_id = saved_id
+            self.chat_ready = None
             adapter = PyMaxHistoryChat(client, self.chat_id, asyncio.get_running_loop())
             transport = MaxMessageTransport(adapter, role="host")
             historic = await asyncio.to_thread(adapter.read_debug_messages, 100)
@@ -166,6 +210,8 @@ class PhoneAuthentication:
                 except Exception:
                     pass
             self._client = None
+            self.chat_ready = None
+            self.chat_options = []
 
     async def resume_saved(self) -> None:
         path = self.dir / "phone.txt"
