@@ -115,7 +115,22 @@ class MainActivity : Activity() {
             }
         })
         root.addView(info("Экспериментальная версия. При ошибке связи с MAX Android VPN не включается. Скорость и работа при белых списках ещё не подтверждены.", 13f))
-        setContentView(ScrollView(this).apply { addView(root) })
+        setContentView(ScrollView(this).apply {
+            clipToPadding = false
+            setOnApplyWindowInsetsListener { _, insets ->
+                @Suppress("DEPRECATION")
+                val top = if (android.os.Build.VERSION.SDK_INT >= 30)
+                    insets.getInsets(android.view.WindowInsets.Type.systemBars()).top
+                else insets.systemWindowInsetTop
+                @Suppress("DEPRECATION")
+                val bottom = if (android.os.Build.VERSION.SDK_INT >= 30)
+                    insets.getInsets(android.view.WindowInsets.Type.systemBars()).bottom
+                else insets.systemWindowInsetBottom
+                setPadding(0, top, 0, bottom)
+                insets
+            }
+            addView(root)
+        })
         refreshStatus()
     }
 

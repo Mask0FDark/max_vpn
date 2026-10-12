@@ -208,7 +208,22 @@ class MaxPhoneLoginActivity : Activity() {
         root.addView(TextView(this).apply {
             text = "MAX сам запрашивает SMS-код. Код и пароль не сохраняются; сессия остаётся на твоём VPS."
         })
-        setContentView(ScrollView(this).apply { addView(root) })
+        setContentView(ScrollView(this).apply {
+            clipToPadding = false
+            setOnApplyWindowInsetsListener { _, insets ->
+                @Suppress("DEPRECATION")
+                val top = if (android.os.Build.VERSION.SDK_INT >= 30)
+                    insets.getInsets(android.view.WindowInsets.Type.systemBars()).top
+                else insets.systemWindowInsetTop
+                @Suppress("DEPRECATION")
+                val bottom = if (android.os.Build.VERSION.SDK_INT >= 30)
+                    insets.getInsets(android.view.WindowInsets.Type.systemBars()).bottom
+                else insets.systemWindowInsetBottom
+                setPadding(0, top, 0, bottom)
+                insets
+            }
+            addView(root)
+        })
         show(JSONObject().put("phase", "idle"))
     }
 
