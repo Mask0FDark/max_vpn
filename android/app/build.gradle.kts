@@ -11,6 +11,7 @@ android {
   versionCode = 8
   versionName = "0.4.2-chat-fix-alpha"
   testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  ndk { abiFilters += listOf("arm64-v8a") }
  }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
  kotlinOptions { jvmTarget = "17" }
