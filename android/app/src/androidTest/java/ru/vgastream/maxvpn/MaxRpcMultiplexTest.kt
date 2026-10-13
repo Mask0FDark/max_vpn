@@ -30,13 +30,17 @@ class MaxRpcMultiplexTest {
         private val inbound = ArrayDeque<String>()
         private val requests = ArrayList<String>()
         val bothSent = CountDownLatch(2)
+        val firstSent = CountDownLatch(1)
 
         override fun sendFrame(frame: String, callback: (Boolean) -> Unit) {
             try {
                 val packet = JSONObject(frame.removePrefix("M0FD-TUNNEL-V1:"))
                 val raw = Base64.decode(packet.getString("data"), Base64.NO_WRAP)
                 val request = JSONObject(String(raw, StandardCharsets.US_ASCII))
-                synchronized(this) { requests.add(request.getString("request_id")) }
+                synchronized(this) {
+                    requests.add(request.getString("request_id"))
+                    if (requests.size == 1) firstSent.countDown()
+                }
                 bothSent.countDown()
                 callback(true)
             } catch (_: Exception) {
@@ -116,8 +120,9 @@ class MaxRpcMultiplexTest {
         val b = task("two", second, secondDone)
         try {
             a.start()
-            // Ensures the index 0 request is issued by the first thread.
-            Thread.sleep(250)
+            // Wait for the first frame rather than relying on emulator
+            // thread scheduling or a fixed arbitrary sleep.
+            assertTrue(chat.firstSent.await(5, TimeUnit.SECONDS))
             b.start()
             assertTrue("Both requests must be sent concurrently",
                 chat.bothSent.await(5, TimeUnit.SECONDS))
