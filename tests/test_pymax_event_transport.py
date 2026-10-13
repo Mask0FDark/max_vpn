@@ -37,5 +37,27 @@ class PyMaxEventTransportTests(unittest.TestCase):
             loop.close()
 
 
+class PyMaxWakeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_new_encrypted_frame_wakes_host_without_history_query(self):
+        chat = PyMaxHistoryChat(
+            NoHistoryClient(), 123, asyncio.get_running_loop(), event_mode=True
+        )
+        waiter = asyncio.create_task(chat.wait_for_incoming(1.0))
+        await asyncio.sleep(0)
+        chat.accept_event(SimpleNamespace(chat_id=123, text="M0FD-TUNNEL-V1:new"))
+        await asyncio.wait_for(waiter, timeout=0.5)
+        self.assertEqual(
+            chat.read_debug_messages(1), ["M0FD-TUNNEL-V1:new"]
+        )
+
+    async def test_unrelated_chat_does_not_wake_host(self):
+        chat = PyMaxHistoryChat(
+            NoHistoryClient(), 123, asyncio.get_running_loop(), event_mode=True
+        )
+        chat.accept_event(SimpleNamespace(chat_id=456, text="M0FD-TUNNEL-V1:other"))
+        await chat.wait_for_incoming(0.05)
+        self.assertEqual(chat.read_debug_messages(5), [])
+
+
 if __name__ == "__main__":
     unittest.main()
