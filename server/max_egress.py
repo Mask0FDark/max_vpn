@@ -119,16 +119,24 @@ async def run(chat_id: int, *, session_dir: Path, secret: bytes,
         work_dir=str(session_dir), session_name="max-web.db",
         auth_flow=QrAuthFlow(MaxQrForOperator(), password_provider=RejectWebPassword()),
     )
+    active_chat: list[PyMaxHistoryChat | None] = [None]
+
+    @client.on_message()
+    async def on_max_message(message: Any, _client: Any) -> None:
+        adapter = active_chat[0]
+        if adapter is not None:
+            adapter.accept_event(message)
+
     await client.connect()
     runner = SessionRunner()
     try:
         await client.get_chat(chat_id)  # refuse arbitrary/unknown chats
-        adapter = PyMaxHistoryChat(client, chat_id, asyncio.get_running_loop())
+        adapter = PyMaxHistoryChat(
+            client, chat_id, asyncio.get_running_loop(), event_mode=True)
         transport = MaxMessageTransport(adapter, role="host")
-        # Never execute historical requests after a restart.
-        historic = await asyncio.to_thread(adapter.read_debug_messages, 100)
-        transport.seen_frames.update(frame for raw in historic
-                                     if (frame := extract_frame(raw)))
+        active_chat[0] = adapter
+        # Live events only: old history must never be replayed or repeatedly
+        # fetched, otherwise MAX's noninteractive rate limit disconnects us.
         worker = SessionPCWorker(transport, secret, runner)
         print("MAX_VPS_SESSION_EGRESS_READY", flush=True)
         while True:
