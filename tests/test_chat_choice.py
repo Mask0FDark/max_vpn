@@ -38,6 +38,16 @@ class ChatChoiceTests(unittest.IsolatedAsyncioTestCase):
             self.controller.select_chat(123)
         self.assertEqual(self.controller.available_chats(), [])
 
+    async def test_status_returns_selected_chat_for_paired_client(self):
+        self.controller.phase = "connected"
+        self.controller.chat_id = 456
+        self.assertEqual(self.controller.status()["chat_id"], 456)
+
+    async def test_status_omits_selected_chat_during_login(self):
+        self.controller.phase = "waiting_code"
+        self.controller.chat_id = 456
+        self.assertNotIn("chat_id", self.controller.status())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -129,8 +129,21 @@ class MaxPhoneLoginActivity : Activity() {
             .setNegativeButton("Отмена", null)
             .create()
 
+    internal fun restoreSelectedChatFromStatus(data: JSONObject) {
+        if (data.optString("phase") != "connected") return
+        // Owner-token-protected VPS API returns the authenticated session's
+        // chat ID; never infer this value from the UI or an old installation.
+        val serverChatId = data.optLong("chat_id", 0L)
+        if (serverChatId == 0L) return
+        val prefs = getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
+        if (prefs.getLong("max_chat_id", 0L) != serverChatId) {
+            prefs.edit().putLong("max_chat_id", serverChatId).apply()
+        }
+    }
+
     private fun show(data: JSONObject) {
         val next = data.optString("phase", "idle")
+        restoreSelectedChatFromStatus(data)
         if (next != phase) {
             phase = next
             status.text = when (phase) {

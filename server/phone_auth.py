@@ -60,9 +60,16 @@ class PhoneAuthentication:
             self.password_waiter = None
             self.task = asyncio.create_task(self._login(phone))
 
-    def status(self) -> dict[str, str]:
-        # Do not expose phone or login tokens to callers.
-        return {"phase": self.phase, "detail": self.detail}
+    def status(self) -> dict[str, str | int]:
+        # This response is available only through the owner-token-protected API.
+        # Android may lose its local chat ID after reinstall; the MAX session
+        # on the VPS retains the selected ID and can restore it without re-login.
+        result: dict[str, str | int] = {
+            "phase": self.phase, "detail": self.detail
+        }
+        if self.phase == "connected" and self.chat_id != 0:
+            result["chat_id"] = self.chat_id
+        return result
 
     def available_chats(self) -> list[dict[str, Any]]:
         return list(self.chat_options) if self._client is not None else []
