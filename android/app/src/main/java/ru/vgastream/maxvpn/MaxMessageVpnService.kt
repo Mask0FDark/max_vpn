@@ -121,6 +121,7 @@ class MaxMessageVpnService : VpnService() {
                     "socks5:\n  address: 127.0.0.1\n  port: $port\n  udp: 'udp'\n" +
                     "mapdns:\n  address: 198.18.0.2\n  port: 53\n" +
                     "  network: 100.64.0.0\n  netmask: 255.192.0.0\n" +
+                    "  cache-size: 10000\n" +
                     "misc:\n  log-level: warn\n  max-session-count: 8\n"
                 )
                 stage = "native"
