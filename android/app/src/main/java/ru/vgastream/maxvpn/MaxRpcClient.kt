@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
  * No direct VPS fallback is used in this class.
  */
 class MaxRpcClient(
-    private val chat: MaxWebChatTransport,
+    private val chat: MaxChatTransport,
     pairingToken: String
 ) {
     private val codec = MaxWireCodec(pairingToken)

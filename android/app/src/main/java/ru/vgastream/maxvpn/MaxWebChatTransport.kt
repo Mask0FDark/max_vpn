@@ -2,6 +2,7 @@ package ru.vgastream.maxvpn
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.webkit.WebView
 import org.json.JSONArray
 import org.json.JSONObject
@@ -19,7 +20,7 @@ import org.json.JSONObject
 class MaxWebChatTransport(
     private val web: WebView,
     private val chatId: Long
-) {
+) : MaxChatTransport {
     private val main = Handler(Looper.getMainLooper())
 
     init {
@@ -50,7 +51,7 @@ class MaxWebChatTransport(
         }
     }
 
-    fun sendFrame(frame: String, callback: (Boolean) -> Unit) {
+    override fun sendFrame(frame: String, callback: (Boolean) -> Unit) {
         if (!frame.startsWith("M0FD-TUNNEL-V1:") || frame.length > 4000) {
             callback(false)
             return
@@ -66,15 +67,18 @@ class MaxWebChatTransport(
                 const editor = document.querySelector(
                   '[data-lexical-editor="true"][role="textbox"], [role="textbox"][contenteditable="true"], [role="textbox"][contenteditable=""]'
                 );
-                if (!editor) return false;
+                if (!editor) return 'editor-absent';
                 editor.focus();
                 document.execCommand('selectAll', false, null);
-                if (!document.execCommand('insertText', false, $escapedFrame)) return false;
-                return (editor.textContent || '').includes($escapedFrame);
+                if (!document.execCommand('insertText', false, $escapedFrame))
+                  return 'insert-command-failed';
+                return (editor.textContent || '').includes($escapedFrame)
+                  ? 'inserted' : 'verification-failed';
               })()
             """.trimIndent()
             web.evaluateJavascript(script) { inserted ->
-                if (inserted != "true") {
+                if (inserted != "\"inserted\"") {
+                    Log.e("MaxMessageVpn", "MAX_SEND_EDITOR_FAILURE stage=" + inserted.take(60))
                     callback(false)
                     return@evaluateJavascript
                 }
@@ -91,17 +95,22 @@ class MaxWebChatTransport(
                         const button = document.querySelector(
                           'button:has(use[href="#icon_send"])'
                         );
-                        if (!button || button.disabled) return false;
+                        if (!button) return 'send-button-absent';
+                        if (button.disabled) return 'send-button-disabled';
                         button.click();
-                        return true;
+                        return 'sent';
                       })()
-                    """.trimIndent()) { sent -> callback(sent == "true") }
-                }, 300L)
+                    """.trimIndent()) { sent ->
+                        if (sent != "\"sent\"")
+                            Log.e("MaxMessageVpn", "MAX_SEND_BUTTON_FAILURE stage=" + sent.take(60))
+                        callback(sent == "\"sent\"")
+                    }
+                }, 1400L)
             }
         }
     }
 
-    fun readFrames(callback: (List<String>) -> Unit) {
+    override fun readFrames(callback: (List<String>) -> Unit) {
         main.post {
             if (!trustedChat()) {
                 callback(emptyList())
@@ -126,5 +135,9 @@ class MaxWebChatTransport(
                 }
             }
         }
+    }
+
+    override fun close() {
+        // WebView lifecycle is owned by MaxBrowserSession.
     }
 }

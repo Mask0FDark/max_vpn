@@ -25,7 +25,7 @@ import org.json.JSONObject
 class MaxMessageVpnService : VpnService() {
     private val running = AtomicBoolean(false)
     private var tun: ParcelFileDescriptor? = null
-    private var browser: MaxBrowserSession? = null
+    private var nativeChat: NativeMaxChatTransport? = null
     private var socks: MaxSocksServer? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -77,9 +77,9 @@ class MaxMessageVpnService : VpnService() {
                 if (selectedChatId == 0L) {
                     error("No selected MAX chat on device or paired VPS")
                 }
-                val session = MaxBrowserSession(applicationContext, selectedChatId)
-                browser = session
-                val chat = session.connect()
+                val chat = NativeMaxChatTransport.connect(applicationContext, selectedChatId)
+                nativeChat = chat
+                Log.i("MaxNative", "MAX_NATIVE_TRANSPORT_CONNECTED")
                 if (!running.get()) return@Thread
 
                 stage = "max_roundtrip"
@@ -172,8 +172,8 @@ class MaxMessageVpnService : VpnService() {
             tun = null
             socks?.stop()
             socks = null
-            browser?.close()
-            browser = null
+            nativeChat?.close()
+            nativeChat = null
         }
         stage = "stopped"
         status = reason
