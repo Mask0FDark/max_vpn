@@ -117,6 +117,7 @@ class PhoneAuthentication:
 
         client = None
         runner = None
+        active_chat: list[PyMaxHistoryChat | None] = [None]
         try:
             self.dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             if os.name == "posix":
@@ -127,6 +128,14 @@ class PhoneAuthentication:
                 session_name="max-phone.db",
                 auth_flow=SmsAuthFlow(self, password_provider=self),
             )
+            # Subscribe BEFORE connecting, so the server receives live updates
+            # without hitting MAX's fetch_history noninteractive rate limit.
+            @client.on_message()
+            async def on_max_message(message: Any, _client: Any) -> None:
+                adapter = active_chat[0]
+                if adapter is not None:
+                    adapter.accept_event(message)
+
             self.phase = "connecting"
             await client.connect()
             self._client = client
@@ -169,12 +178,12 @@ class PhoneAuthentication:
             else:
                 self.chat_id = saved_id
             self.chat_ready = None
-            adapter = PyMaxHistoryChat(client, self.chat_id, asyncio.get_running_loop())
+            adapter = PyMaxHistoryChat(
+                client, self.chat_id, asyncio.get_running_loop(), event_mode=True)
             transport = MaxMessageTransport(adapter, role="host")
-            historic = await asyncio.to_thread(adapter.read_debug_messages, 100)
-            transport.seen_frames.update(
-                frame for raw in historic if (frame := extract_frame(raw))
-            )
+            # on_message emits live events; replaying history is neither
+            # necessary nor safe: MAX rate-limits frequent history requests.
+            active_chat[0] = adapter
             runner = SessionRunner()
             worker = SessionPCWorker(transport, read_max_transport_key(), runner)
             self.phase = "connected"

@@ -13,7 +13,9 @@ import hashlib
 import os
 import re
 import stat
+import threading
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any
 
@@ -44,12 +46,26 @@ class PyMaxHistoryChat:
     cannot race WebClient's socket and persistent session store.
     """
 
-    def __init__(self, client: Any, chat_id: int, loop: asyncio.AbstractEventLoop):
+    def __init__(self, client: Any, chat_id: int, loop: asyncio.AbstractEventLoop,
+                 *, event_mode: bool = False):
         if type(chat_id) is not int or chat_id == 0 or abs(chat_id) > (2**63 - 1):
             raise ValueError("dedicated MAX chat ID must be a signed nonzero integer")
         self.client = client
         self.chat_id = chat_id
         self.loop = loop
+        self.event_mode = event_mode
+        self._events: deque[str] = deque(maxlen=1024)
+        self._event_lock = threading.Lock()
+
+    def accept_event(self, message: Any) -> None:
+        """Feed PyMax's live on_message callback; do not poll chat history."""
+        if getattr(message, "chat_id", None) != self.chat_id:
+            return
+        value = getattr(message, "text", None)
+        if not isinstance(value, str) or not value.startswith("M0FD-TUNNEL-V1:"):
+            return
+        with self._event_lock:
+            self._events.append(value)
 
     def _wait(self, coroutine: Any, timeout: int = 45) -> Any:
         future = asyncio.run_coroutine_threadsafe(coroutine, self.loop)
@@ -69,12 +85,18 @@ class PyMaxHistoryChat:
     def read_debug_messages(self, limit: int = 100) -> list[str]:
         if not 1 <= limit <= 100:
             raise ValueError("history read limit exceeded")
+        if self.event_mode:
+            # Live messages are received through PyMax on_message and removed
+            # exactly once; polling fetch_history every 2s triggers MAX 429s.
+            with self._event_lock:
+                result = [self._events.popleft()
+                          for _ in range(min(limit, len(self._events)))]
+            return result
         messages = self._wait(self.client.fetch_history(
             chat_id=self.chat_id, backward=limit, get_messages=True))
         result = []
         for message in messages:
             if message.chat_id == self.chat_id and isinstance(message.text, str):
-                # MaxMessageTransport verifies encrypted envelopes independently.
                 result.append(message.text)
         return result
 
