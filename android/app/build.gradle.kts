@@ -1,4 +1,4 @@
-plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
+plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("com.chaquo.python") }
 
 android {
  namespace = "ru.vgastream.maxvpn"
