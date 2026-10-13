@@ -103,17 +103,9 @@ class MaxPhoneLoginActivity : Activity() {
                 }
                 runOnUiThread {
                     if (closed) return@runOnUiThread
-                    android.app.AlertDialog.Builder(this@MaxPhoneLoginActivity)
-                        .setTitle("Выбери отдельный приватный чат для VPN")
-                        // Do not call setMessage(): AlertController replaces its list panel
-                        // with the message view and hides setSingleChoiceItems() entries.
-                        .setSingleChoiceItems(labels, -1) { dialog, which ->
-                            val id = ids[which]
-                            dialog.dismiss()
-                            send("chat", id.toString())
-                        }
-                        .setNegativeButton("Отмена", null)
-                        .show()
+                    createChatChoiceDialog(labels) { which ->
+                        send("chat", ids[which].toString())
+                    }.show()
                 }
             } catch (e: Exception) {
                 runOnUiThread {
@@ -125,6 +117,17 @@ class MaxPhoneLoginActivity : Activity() {
             }
         }
     }
+
+    internal fun createChatChoiceDialog(labels: Array<String>, onChoose: (Int) -> Unit): android.app.AlertDialog =
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Выбери отдельный приватный чат для VPN")
+            // setMessage() must NOT be used: it hides the single-choice list.
+            .setSingleChoiceItems(labels, -1) { dialog, which ->
+                dialog.dismiss()
+                onChoose(which)
+            }
+            .setNegativeButton("Отмена", null)
+            .create()
 
     private fun show(data: JSONObject) {
         val next = data.optString("phase", "idle")
