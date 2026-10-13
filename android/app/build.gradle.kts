@@ -19,6 +19,8 @@ android {
 dependencies {
  implementation(files("libs/hev-socks5-tunnel.aar"))
  implementation("com.squareup.okhttp3:okhttp:4.12.0")
+ implementation("org.msgpack:msgpack-core:0.9.9")
+ implementation("org.lz4:lz4-java:1.8.0")
  androidTestImplementation("androidx.test.ext:junit:1.2.1")
  androidTestImplementation("androidx.test:runner:1.6.2")
 }

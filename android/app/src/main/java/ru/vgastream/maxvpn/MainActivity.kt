@@ -169,8 +169,17 @@ class MainActivity : Activity() {
             intent?.getBooleanExtra("maxvpn_web_login", false) == true) {
             startActivity(Intent(this, MaxWebLoginActivity::class.java))
         }
-        // Opt-in ADB diagnostic for development builds. Performs only a MAX
-        // request/reply preflight; never establishes a TUN interface.
+        // USB-only direct MAX API probe. No WebView, no VPN TUN.
+        if (BuildConfig.DEBUG && intent?.getBooleanExtra("maxvpn_native_probe", false) == true) {
+            Thread({
+                try {
+                    NativeMaxProbe(applicationContext).run()
+                } catch (error: Throwable) {
+                    Log.e("MaxNative", "MAX_NATIVE_PROBE_FAILED", error)
+                }
+            }, "maxvpn-native-smoke").start()
+        }
+        // Opt-in MAX Web diagnostic (legacy).
         if (startProbe) startMaxProbe()
     }
 
