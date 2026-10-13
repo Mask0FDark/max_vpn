@@ -56,6 +56,7 @@ class PyMaxHistoryChat:
         self.event_mode = event_mode
         self._events: deque[str] = deque(maxlen=1024)
         self._event_lock = threading.Lock()
+        self._new_event = asyncio.Event()
 
     def accept_event(self, message: Any) -> None:
         """Feed PyMax's live on_message callback; do not poll chat history."""
@@ -66,6 +67,24 @@ class PyMaxHistoryChat:
             return
         with self._event_lock:
             self._events.append(value)
+        # MAX event callbacks run on the PyMax asyncio loop. Wake the host
+        # immediately instead of sleeping 2-3 seconds between incoming RPCs.
+        self.loop.call_soon_threadsafe(self._new_event.set)
+
+    async def wait_for_incoming(self, timeout: float = 5.0) -> None:
+        """Wake on live MAX frames, with periodic fallback for maintenance."""
+        if not self.event_mode:
+            await asyncio.sleep(timeout)
+            return
+        with self._event_lock:
+            if self._events:
+                return
+        try:
+            await asyncio.wait_for(self._new_event.wait(), timeout)
+        except asyncio.TimeoutError:
+            pass
+        finally:
+            self._new_event.clear()
 
     def _wait(self, coroutine: Any, timeout: int = 45) -> Any:
         future = asyncio.run_coroutine_threadsafe(coroutine, self.loop)
@@ -140,8 +159,9 @@ async def run(chat_id: int, *, session_dir: Path, secret: bytes,
         worker = SessionPCWorker(transport, secret, runner)
         print("MAX_VPS_SESSION_EGRESS_READY", flush=True)
         while True:
-            await asyncio.to_thread(worker.process_sync)
-            await asyncio.sleep(poll_seconds)
+            processed = await asyncio.to_thread(worker.process_sync)
+            if not processed:
+                await adapter.wait_for_incoming(poll_seconds)
     finally:
         await asyncio.to_thread(runner.stop)
         await client.close()
