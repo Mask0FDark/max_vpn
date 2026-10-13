@@ -95,13 +95,40 @@ internal class NativeMaxProbe(private val context: Context) {
     }
 
     private fun request(sock: SSLSocket, input: DataInputStream, seq: Int,
-                        op: Int, data: Map<String, Any?>): Frame {
+                        op: Int, data: Map<String, Any?>,
+                        onPush: (Frame) -> Unit = {}): Frame {
         write(sock, seq, op, data)
         repeat(30) {
             val reply = read(input)
             if (reply.sequence == seq) return reply
+            onPush(reply)
         }
         error("MAX response sequence not received")
+    }
+
+    private fun messageTexts(bytes: ByteArray): List<String> {
+        for (offset in 0..minOf(bytes.size - 1, 4)) {
+            try {
+                val unpacker = MessagePack.newDefaultUnpacker(bytes.copyOfRange(offset, bytes.size))
+                val value = unpacker.unpackValue()
+                unpacker.close()
+                val found = ArrayList<String>()
+                fun visit(v: Value, depth: Int) {
+                    if (depth > 10) return
+                    when {
+                        v.isStringValue -> {
+                            val text = v.asStringValue().asString()
+                            if (text.contains("M0FD-TUNNEL-V1:")) found.add(text)
+                        }
+                        v.isArrayValue -> v.asArrayValue().list().forEach { visit(it, depth + 1) }
+                        v.isMapValue -> v.asMapValue().map().values.forEach { visit(it, depth + 1) }
+                    }
+                }
+                visit(value, 0)
+                if (found.isNotEmpty()) return found
+            } catch (_: Exception) {}
+        }
+        return emptyList()
     }
 
     fun run() {
@@ -152,7 +179,21 @@ internal class NativeMaxProbe(private val context: Context) {
             val wire = MaxWireCodec(pairing)
             val command = JSONObject().put("v",1).put("action","open")
                 .put("host","example.com").put("port",80)
-            val frames = wire.request(command.toString().toByteArray(StandardCharsets.US_ASCII)).second
+            val (requestId, frames) =
+                wire.request(command.toString().toByteArray(StandardCharsets.US_ASCII))
+            var verified = false
+            val pending = ArrayList<Frame>()
+            fun process(frame: Frame) {
+                for (text in messageTexts(frame.body)) {
+                    val reply = wire.accept(text) ?: continue
+                    if (reply.id == requestId && reply.kind == "response") {
+                        val response = JSONObject(String(reply.payload, StandardCharsets.US_ASCII))
+                        if (response.optInt("v") == 1 && response.optString("status") == "ok") {
+                            verified = true
+                        }
+                    }
+                }
+            }
             for ((index, frame) in frames.withIndex()) {
                 val sent = request(sock, input, index+2, 64, mapOf(
                     "chatId" to chatId,
@@ -160,10 +201,21 @@ internal class NativeMaxProbe(private val context: Context) {
                         "cid" to System.currentTimeMillis()*1000+index,
                         "text" to frame,
                         "detectShare" to false),
-                    "notify" to false))
+                    "notify" to false
+                )) { pending.add(it) }
                 if (sent.command != 1) error("MAX SEND rejected cmd=" + sent.command)
             }
             Log.i("MaxNative", "MAX_NATIVE_ENCRYPTED_FRAME_SENT")
+            for (event in pending) process(event)
+            sock.soTimeout = 6000
+            val deadline = System.nanoTime() + 35_000_000_000L
+            while (!verified && System.nanoTime() < deadline) {
+                try {
+                    process(read(input))
+                } catch (_: SocketTimeoutException) {}
+            }
+            if (verified) Log.i("MaxNative", "MAX_NATIVE_ROUNDTRIP_OK")
+            else error("MAX host reply was not received on native Android socket")
         }
     }
 }
