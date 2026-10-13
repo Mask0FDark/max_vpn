@@ -73,6 +73,10 @@ class MainActivity : Activity() {
             text = "Войти в MAX по номеру телефона"
             setOnClickListener { startActivity(Intent(this@MainActivity, MaxPhoneLoginActivity::class.java)) }
         })
+        root.addView(Button(this).apply {
+            text = "Войти в MAX Web для VPN"
+            setOnClickListener { startActivity(Intent(this@MainActivity, MaxWebLoginActivity::class.java)) }
+        })
 
         root.addView(Button(this).apply {
             text = "Привязать VPS по одноразовому коду"
