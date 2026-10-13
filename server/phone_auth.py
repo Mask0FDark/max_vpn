@@ -209,13 +209,14 @@ class PhoneAuthentication:
             print("MAX_PHONE_SESSION_EGRESS_READY", flush=True)
             while True:
                 try:
-                    await asyncio.to_thread(worker.process_sync)
+                    processed = await asyncio.to_thread(worker.process_sync)
                 except Exception:
                     # MAX reconnect may fail due to vendor API changes.
                     self.phase = "transport_error"
                     self.detail = "MAX message transport disconnected"
                     break
-                await asyncio.sleep(2)
+                if not processed:
+                    await adapter.wait_for_incoming(8.0)
         except asyncio.CancelledError:
             raise
         except TimeoutError:
