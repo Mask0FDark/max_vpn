@@ -34,6 +34,37 @@ class MaxSocksServer(private val rpc: MaxRpcClient) {
         rpc.close(session)
     }
 
+    /** Real loopback SOCKS5 -> MAX -> VPS -> HTTP check, before enabling Android TUN. */
+    fun selfTestHttp(port: Int) {
+        Socket(loopback, port).use { client ->
+            client.soTimeout = 80000
+            val input = client.getInputStream()
+            val output = client.getOutputStream()
+            output.write(byteArrayOf(5, 1, 0))
+            output.flush()
+            check(take(input, 2).contentEquals(byteArrayOf(5, 0))) {
+                "SOCKS5 handshake failed"
+            }
+            val host = "example.com".toByteArray(Charsets.US_ASCII)
+            output.write(byteArrayOf(5, 1, 0, 3, host.size.toByte()))
+            output.write(host)
+            output.write(byteArrayOf(0, 80))
+            output.flush()
+            val reply = take(input, 10)
+            check(reply[0] == 5.toByte() && reply[1] == 0.toByte()) {
+                "SOCKS5 TCP CONNECT through MAX failed"
+            }
+            output.write(
+                "HEAD / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n"
+                    .toByteArray(Charsets.US_ASCII)
+            )
+            output.flush()
+            check(String(take(input, 5), Charsets.US_ASCII) == "HTTP/") {
+                "No HTTP response over MAX SOCKS5"
+            }
+        }
+    }
+
     fun start(): Int {
         check(active.compareAndSet(false, true))
         listener = ServerSocket(0, 16, loopback)

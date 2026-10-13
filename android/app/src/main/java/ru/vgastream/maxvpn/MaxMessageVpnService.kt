@@ -88,15 +88,16 @@ class MaxMessageVpnService : VpnService() {
                 socks = server
                 server.preflight()
                 if (!running.get()) return@Thread
+                Log.i("MaxMessageVpn", "MAX_ROUNDTRIP_OK: Android -> MAX -> VPS -> MAX")
+                stage = "socks"
+                val port = server.start()
                 if (probeOnly) {
-                    Log.i("MaxMessageVpn", "MAX_ROUNDTRIP_OK: Android -> MAX -> VPS -> MAX")
-                    teardown("MAX: двусторонний тест прошёл без запуска VPN")
+                    server.selfTestHttp(port)
+                    Log.i("MaxNative", "MAX_NATIVE_SOCKS_HTTP_OK")
+                    teardown("MAX: SOCKS5 HTTP прошёл через MAX и VPS")
                     stopSelf()
                     return@Thread
                 }
-
-                stage = "socks"
-                val port = server.start()
                 stage = "tun"
                 status = "Запускаю MAX VPN..."
                 tun = Builder()

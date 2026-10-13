@@ -181,6 +181,13 @@ class MainActivity : Activity() {
         }
         // Opt-in MAX Web diagnostic (legacy).
         if (startProbe) startMaxProbe()
+        if (BuildConfig.DEBUG && intent?.getBooleanExtra("maxvpn_start", false) == true) {
+            val permission = VpnService.prepare(this)
+            if (permission != null) {
+                @Suppress("DEPRECATION")
+                startActivityForResult(permission, REQ_MAX)
+            } else startMax()
+        }
     }
 
     private fun startMaxProbe() {
