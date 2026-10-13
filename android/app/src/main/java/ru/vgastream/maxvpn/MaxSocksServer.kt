@@ -1,5 +1,6 @@
 package ru.vgastream.maxvpn
 
+import android.util.Log
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
@@ -78,8 +79,10 @@ class MaxSocksServer(private val rpc: MaxRpcClient) {
                     }
                     clients.add(client)
                     pool.execute {
-                        try { handle(client) } catch (_: Exception) {}
-                        finally {
+                        try { handle(client) }
+                        catch (error: Exception) {
+                            Log.e("MaxSocks", "SOCKS_CLIENT_FAILURE", error)
+                        } finally {
                             clients.remove(client)
                             try { client.close() } catch (_: Exception) {}
                         }
@@ -148,8 +151,14 @@ class MaxSocksServer(private val rpc: MaxRpcClient) {
         val p = take(input, 2)
         val port = ((p[0].toInt() and 255) shl 8) or (p[1].toInt() and 255)
         when (req[1].toInt() and 255) {
-            1 -> tcp(socket, input, output, address, port)
-            3 -> udp(socket, input, output)
+            1 -> {
+                Log.i("MaxSocks", "SOCKS_TCP_CONNECT_REQUEST")
+                tcp(socket, input, output, address, port)
+            }
+            3 -> {
+                Log.i("MaxSocks", "SOCKS_UDP_ASSOCIATE_REQUEST")
+                udp(socket, input, output)
+            }
             else -> response(output, 7)
         }
     }
@@ -157,7 +166,11 @@ class MaxSocksServer(private val rpc: MaxRpcClient) {
     private fun tcp(socket: Socket, input: InputStream, output: OutputStream,
                     address: String, port: Int) {
         val session = try { rpc.open(address, port) }
-            catch (_: Exception) { response(output, 5); return }
+            catch (error: Exception) {
+                Log.e("MaxSocks", "SOCKS_TCP_OPEN_FAILED", error)
+                response(output, 5)
+                return
+            }
         try {
             response(output, 0)
             socket.soTimeout = 350
@@ -175,8 +188,11 @@ class MaxSocksServer(private val rpc: MaxRpcClient) {
                 }
                 if (state == "eof") break
             }
-        } catch (_: Exception) { }
-        finally { try { rpc.close(session) } catch (_: Exception) { } }
+        } catch (error: Exception) {
+            Log.e("MaxSocks", "SOCKS_TCP_STREAM_FAILED", error)
+        } finally {
+            try { rpc.close(session) } catch (_: Exception) {}
+        }
     }
 
     /** DNS-only UDP-over-MAX. Other UDP destinations are rejected server-side. */
@@ -203,7 +219,9 @@ class MaxSocksServer(private val rpc: MaxRpcClient) {
                 val portRaw = take(packet, 2)
                 val port = ((portRaw[0].toInt() and 255) shl 8) or (portRaw[1].toInt() and 255)
                 if (port != 53) continue
+                Log.i("MaxSocks", "SOCKS_DNS_QUERY_RECEIVED")
                 val dnsAnswer = rpc.dns(host, packet.readBytes())
+                Log.i("MaxSocks", "SOCKS_DNS_REPLY_BYTES=" + dnsAnswer.size)
                 val origin = InetAddress.getByName(host)
                 val reply = ByteArrayOutputStream()
                 reply.write(byteArrayOf(0,0,0,(if (origin.address.size==4) 1 else 4).toByte()))
@@ -213,7 +231,8 @@ class MaxSocksServer(private val rpc: MaxRpcClient) {
                 val content = reply.toByteArray()
                 relay.send(DatagramPacket(content, content.size, clientAddress))
             }
-        } catch (_: Exception) { }
-        finally { relay.close() }
+        } catch (error: Exception) {
+            Log.e("MaxSocks", "SOCKS_UDP_RELAY_FAILED", error)
+        } finally { relay.close() }
     }
 }

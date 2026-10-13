@@ -126,6 +126,7 @@ class MaxMessageVpnService : VpnService() {
                 if (running.get()) {
                     stage = "connected"
                     status = "MAX VPN подключён: трафик через MAX (эксперимент)"
+                    Log.i("MaxNative", "MAX_ANDROID_TUN_CONNECTED")
                 }
             } catch (e: Throwable) {
                 if (running.get()) fail(stage, e)
