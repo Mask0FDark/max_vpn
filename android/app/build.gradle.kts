@@ -22,3 +22,5 @@ dependencies {
  androidTestImplementation("androidx.test.ext:junit:1.2.1")
  androidTestImplementation("androidx.test:runner:1.6.2")
 }
+
+chaquopy { defaultConfig { version = "3.11"; pip { install("maxapi-python==2.4.1") } } }
