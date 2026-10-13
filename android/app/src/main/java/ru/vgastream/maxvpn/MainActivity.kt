@@ -185,6 +185,11 @@ class MainActivity : Activity() {
                 .putBoolean("vpn_shell_only", intent.getBooleanExtra("maxvpn_shell_only", false))
                 .apply()
         }
+        if (BuildConfig.DEBUG && intent?.hasExtra("maxvpn_browser_only") == true) {
+            getSharedPreferences("vpn-private-settings", MODE_PRIVATE).edit()
+                .putBoolean("vpn_browser_only", intent.getBooleanExtra("maxvpn_browser_only", false))
+                .apply()
+        }
         // Opt-in MAX Web diagnostic (legacy).
         if (startProbe) startMaxProbe()
         if (BuildConfig.DEBUG && intent?.getBooleanExtra("maxvpn_start", false) == true) {

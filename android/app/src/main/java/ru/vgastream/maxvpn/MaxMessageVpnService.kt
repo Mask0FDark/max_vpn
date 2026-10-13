@@ -110,6 +110,11 @@ class MaxMessageVpnService : VpnService() {
                         .getBoolean("vpn_shell_only", false)) {
                     builder.addAllowedApplication("com.android.shell")
                     Log.i("MaxNative", "MAX_SHELL_ONLY_TEST_ENABLED")
+                } else if (BuildConfig.DEBUG &&
+                    getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
+                        .getBoolean("vpn_browser_only", false)) {
+                    builder.addAllowedApplication("com.android.chrome")
+                    Log.i("MaxNative", "MAX_CHROME_ONLY_TEST_ENABLED")
                 } else {
                     builder.addDisallowedApplication(packageName)
                 }
