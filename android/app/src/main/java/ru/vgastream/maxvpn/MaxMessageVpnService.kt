@@ -32,24 +32,7 @@ class MaxMessageVpnService : VpnService() {
         }
         if (!running.compareAndSet(false, true)) return START_NOT_STICKY
         status = "Проверка MAX..."
-        val token = RelaySettings.load(this)
-        if (token.length < 40) {
-            teardown("Сначала привяжи телефон к VPS")
-            stopSelf()
-            return START_NOT_STICKY
-        }
-        val selectedChatId = getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
-            .getLong("max_chat_id", 0L)
-        if (selectedChatId == 0L) {
-            teardown("Сначала выбери чат MAX на экране входа")
-            stopSelf()
-            return START_NOT_STICKY
-        }
-        if (VpnService.prepare(this) != null) {
-            teardown("Требуется разрешение Android VPN")
-            stopSelf()
-            return START_NOT_STICKY
-        }
+        // Android requires startForeground() before any early return from this service.
         try {
             if (Build.VERSION.SDK_INT >= 26) {
                 (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
@@ -68,6 +51,24 @@ class MaxMessageVpnService : VpnService() {
             startForeground(110, notification)
         } catch (e: Exception) {
             fail("notification", e)
+            return START_NOT_STICKY
+        }
+        val token = RelaySettings.load(this)
+        if (token.length < 40) {
+            teardown("Сначала привяжи телефон к VPS")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        val selectedChatId = getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
+            .getLong("max_chat_id", 0L)
+        if (selectedChatId == 0L) {
+            teardown("Сначала выбери чат MAX на экране входа")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        if (VpnService.prepare(this) != null) {
+            teardown("Требуется разрешение Android VPN")
+            stopSelf()
             return START_NOT_STICKY
         }
         Thread({
