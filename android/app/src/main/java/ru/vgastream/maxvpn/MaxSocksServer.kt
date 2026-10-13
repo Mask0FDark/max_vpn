@@ -100,6 +100,9 @@ class MaxSocksServer(private val rpc: MaxRpcClient) {
             clients.forEach { try { it.close() } catch (_: Exception) {} }
             clients.clear()
         }
+        // Wake pending MAX RPCs immediately; otherwise a dead/closing TUN
+        // leaves background SOCKS workers waiting up to 85 seconds.
+        rpc.close()
         pool.shutdownNow()
     }
 
