@@ -104,8 +104,9 @@ class MaxPhoneLoginActivity : Activity() {
                 runOnUiThread {
                     if (closed) return@runOnUiThread
                     android.app.AlertDialog.Builder(this@MaxPhoneLoginActivity)
-                        .setTitle("Выбери чат для VPN")
-                        .setMessage("В выбранный чат будут отправляться зашифрованные технические сообщения. Лучше создать отдельный приватный чат.")
+                        .setTitle("Выбери отдельный приватный чат для VPN")
+                        // Do not call setMessage(): AlertController replaces its list panel
+                        // with the message view and hides setSingleChoiceItems() entries.
                         .setSingleChoiceItems(labels, -1) { dialog, which ->
                             val id = ids[which]
                             dialog.dismiss()
