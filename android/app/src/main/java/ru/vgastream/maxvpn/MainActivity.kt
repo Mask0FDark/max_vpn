@@ -18,6 +18,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import java.io.File
 
 /**
  * MAX message VPN preview. Never substitutes direct VPS HTTPS when MAX is selected.
@@ -36,6 +37,18 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Local USB-only developer provisioning after the required signing-key
+        // migration. The token never goes into the APK, logs or public repo.
+        if (BuildConfig.DEBUG) {
+            val bootstrap = File(filesDir, "adb-bootstrap-token")
+            if (bootstrap.isFile) {
+                try {
+                    RelaySettings.save(applicationContext, bootstrap.readText().trim())
+                } finally {
+                    bootstrap.delete()
+                }
+            }
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(30, 24, 30, 24)
