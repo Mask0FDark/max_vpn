@@ -165,6 +165,10 @@ class MainActivity : Activity() {
             addView(root)
         })
         refreshStatus()
+        if (BuildConfig.DEBUG &&
+            intent?.getBooleanExtra("maxvpn_web_login", false) == true) {
+            startActivity(Intent(this, MaxWebLoginActivity::class.java))
+        }
         // Opt-in ADB diagnostic for development builds. Performs only a MAX
         // request/reply preflight; never establishes a TUN interface.
         if (startProbe) startMaxProbe()

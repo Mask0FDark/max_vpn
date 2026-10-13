@@ -3,6 +3,9 @@ package ru.vgastream.maxvpn
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -34,7 +37,22 @@ class MaxBrowserSession(private val context: Context, private val chatId: Long) 
                 }
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(web, false)
-                web.webViewClient = object : WebViewClient() {}
+                web.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView, url: String) {
+                        val uri = android.net.Uri.parse(url)
+                        Log.i("MaxMessageVpn", "MAX_WEB_PAGE host=" + uri.host +
+                            " expected_chat_path=" + (uri.path?.trimEnd('/') == "/$chatId"))
+                        view.evaluateJavascript(
+                            "document.querySelectorAll('[role=textbox]').length"
+                        ) { count -> Log.i("MaxMessageVpn", "MAX_WEB_EDITOR_COUNT=" + count) }
+                    }
+                    override fun onReceivedError(
+                        view: WebView, request: WebResourceRequest, error: WebResourceError
+                    ) {
+                        if (request.isForMainFrame)
+                            Log.e("MaxMessageVpn", "MAX_WEB_MAIN_FRAME_ERROR code=" + error.errorCode)
+                    }
+                }
                 browser = web
                 val client = MaxWebChatTransport(web, chatId)
                 chat = client
