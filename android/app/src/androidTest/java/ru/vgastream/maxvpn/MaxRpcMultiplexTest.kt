@@ -144,4 +144,33 @@ class MaxRpcMultiplexTest {
             b.join(1000)
         }
     }
+
+    @Test fun disconnectWakesPendingNetworkRequest() {
+        val chat = FakeChat(token)
+        val client = MaxRpcClient(chat, token)
+        val finished = CountDownLatch(1)
+        val failure = AtomicReference<Throwable?>()
+        val worker = Thread {
+            try {
+                client.exchange(JSONObject().put("v", 1).put("action", "test"), 12)
+            } catch (error: Throwable) {
+                failure.set(error)
+            } finally {
+                finished.countDown()
+            }
+        }
+        try {
+            worker.start()
+            assertTrue(chat.firstSent.await(5, TimeUnit.SECONDS))
+            client.close()
+            assertTrue("Disconnect must cancel a waiting MAX request",
+                finished.await(3, TimeUnit.SECONDS))
+            assertTrue("Request cannot succeed after disconnect",
+                failure.get() is IllegalStateException)
+        } finally {
+            client.close()
+            worker.interrupt()
+            worker.join(1000)
+        }
+    }
 }
