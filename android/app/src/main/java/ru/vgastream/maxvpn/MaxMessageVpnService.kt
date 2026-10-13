@@ -11,7 +11,11 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import hev.htproxy.TProxyService
 import java.io.File
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 
 /**
  * Experimental genuine MAX message VPN (NOT the direct VPS HTTPS relay).
@@ -59,14 +63,8 @@ class MaxMessageVpnService : VpnService() {
             stopSelf()
             return START_NOT_STICKY
         }
-        val selectedChatId = getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
-            .getLong("max_chat_id", 0L)
-        if (selectedChatId == 0L) {
-            teardown("Сначала выбери чат MAX на экране входа")
-            stopSelf()
-            return START_NOT_STICKY
-        }
-        if (VpnService.prepare(this) != null) {
+        val probeOnly = BuildConfig.DEBUG && intent?.action == PROBE
+        if (!probeOnly && VpnService.prepare(this) != null) {
             teardown("Требуется разрешение Android VPN")
             stopSelf()
             return START_NOT_STICKY
@@ -75,6 +73,10 @@ class MaxMessageVpnService : VpnService() {
             try {
                 stage = "max_login"
                 status = "Подключение к авторизованному MAX..."
+                val selectedChatId = resolveSelectedChatId(token)
+                if (selectedChatId == 0L) {
+                    error("No selected MAX chat on device or paired VPS")
+                }
                 val session = MaxBrowserSession(applicationContext, selectedChatId)
                 browser = session
                 val chat = session.connect()
@@ -86,6 +88,12 @@ class MaxMessageVpnService : VpnService() {
                 socks = server
                 server.preflight()
                 if (!running.get()) return@Thread
+                if (probeOnly) {
+                    Log.i("MaxMessageVpn", "MAX_ROUNDTRIP_OK: Android -> MAX -> VPS -> MAX")
+                    teardown("MAX: двусторонний тест прошёл без запуска VPN")
+                    stopSelf()
+                    return@Thread
+                }
 
                 stage = "socks"
                 val port = server.start()
@@ -125,6 +133,31 @@ class MaxMessageVpnService : VpnService() {
         return START_NOT_STICKY
     }
 
+    private fun resolveSelectedChatId(token: String): Long {
+        val prefs = getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
+        val existing = prefs.getLong("max_chat_id", 0L)
+        if (existing != 0L) return existing
+        val client = OkHttpClient.Builder().callTimeout(8, TimeUnit.SECONDS).build()
+        try {
+            val request = Request.Builder()
+                .url("https://max-vpn.mask-0f-darkness.ru/api/max/login/status")
+                .header("X-MAXVPN-Token", token)
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return 0L
+                val body = JSONObject(response.body?.string() ?: "{}")
+                if (body.optString("phase") != "connected") return 0L
+                val chatId = body.optLong("chat_id", 0L)
+                if (chatId != 0L)
+                    prefs.edit().putLong("max_chat_id", chatId).apply()
+                return chatId
+            }
+        } finally {
+            client.dispatcher.executorService.shutdown()
+            client.connectionPool.evictAll()
+        }
+    }
+
     private fun fail(step: String, error: Throwable) {
         Log.e("MaxMessageVpn", "Failed at $step", error)
         val detail = error.javaClass.simpleName + ": " + (error.message ?: "unknown").take(100)
@@ -161,6 +194,7 @@ class MaxMessageVpnService : VpnService() {
 
     companion object {
         const val CONNECT = "ru.vgastream.maxvpn.MAX_CONNECT"
+        const val PROBE = "ru.vgastream.maxvpn.MAX_PROBE"
         const val STOP = "ru.vgastream.maxvpn.MAX_STOP"
         private const val CHANNEL = "maxvpn-max-chat"
         @Volatile var status = "MAX VPN не подключён"

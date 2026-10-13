@@ -136,6 +136,14 @@ class MainActivity : Activity() {
             addView(root)
         })
         refreshStatus()
+        // Opt-in ADB diagnostic for development builds. Performs only a MAX
+        // request/reply preflight; never establishes a TUN interface.
+        if (BuildConfig.DEBUG && intent?.getBooleanExtra("maxvpn_probe", false) == true) {
+            val probe = Intent(this, MaxMessageVpnService::class.java)
+                .setAction(MaxMessageVpnService.PROBE)
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(probe)
+            else startService(probe)
+        }
     }
 
     private fun startMax() {
