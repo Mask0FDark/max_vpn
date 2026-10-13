@@ -40,6 +40,10 @@ class ChatInput(BaseModel):
     chat: int
 
 
+class QrApprovalInput(BaseModel):
+    qr_link: str = Field(min_length=15, max_length=512)
+
+
 def make_app(controller: PhoneAuthentication) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -63,6 +67,17 @@ def make_app(controller: PhoneAuthentication) -> FastAPI:
     async def chats(x_maxvpn_token: str | None = Header(default=None)):
         require_owner(x_maxvpn_token)
         return {"chats": controller.available_chats()}
+
+    @app.post("/internal/max/approve-qr")
+    async def approve_qr(body: QrApprovalInput, x_maxvpn_token: str | None = Header(default=None)):
+        require_owner(x_maxvpn_token)
+        try:
+            approved = await controller.approve_web_qr(body.qr_link)
+        except ValueError:
+            raise HTTPException(422, "invalid_max_qr_url")
+        except RuntimeError:
+            raise HTTPException(409, "max_mobile_session_not_ready")
+        return {"approved": approved}
 
     @app.post("/internal/max/chat")
     async def select_chat(body: ChatInput, x_maxvpn_token: str | None = Header(default=None)):

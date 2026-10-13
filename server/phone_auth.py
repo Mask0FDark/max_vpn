@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from bridge.max_debug import extract_frame
 from bridge.max_rpc import MaxMessageTransport
@@ -70,6 +71,17 @@ class PhoneAuthentication:
         if self.phase == "connected" and self.chat_id != 0:
             result["chat_id"] = self.chat_id
         return result
+
+    async def approve_web_qr(self, qr_link: str) -> bool:
+        """Approve the owner's current official MAX Web QR using a live mobile session."""
+        url = urlsplit(qr_link)
+        if (url.scheme != "https" or url.hostname != "max.ru" or
+            url.username is not None or url.password is not None or
+            not 15 <= len(qr_link) <= 512):
+            raise ValueError("not an official MAX QR URL")
+        if self.phase != "connected" or self._client is None:
+            raise RuntimeError("MAX mobile session is not ready")
+        return bool(await self._client.authorize_qr_login(qr_link))
 
     def available_chats(self) -> list[dict[str, Any]]:
         return list(self.chat_options) if self._client is not None else []
