@@ -100,18 +100,27 @@ class MaxMessageVpnService : VpnService() {
                 }
                 stage = "tun"
                 status = "Запускаю MAX VPN..."
-                tun = Builder()
+                val builder = Builder()
                     .setSession("MAX VPN — MAX messages")
                     .setMtu(1280)
                     .addAddress("10.83.0.3", 32)
                     .addRoute("0.0.0.0", 0)
-                    .addDnsServer("1.1.1.1")
-                    .addDisallowedApplication(packageName)
-                    .establish() ?: error("Failed to create Android VPN interface")
+                    .addDnsServer("198.18.0.2")
+                if (BuildConfig.DEBUG && getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
+                        .getBoolean("vpn_shell_only", false)) {
+                    builder.addAllowedApplication("com.android.shell")
+                    Log.i("MaxNative", "MAX_SHELL_ONLY_TEST_ENABLED")
+                } else {
+                    builder.addDisallowedApplication(packageName)
+                }
+                tun = builder.establish()
+                    ?: error("Failed to create Android VPN interface")
                 val config = File(filesDir, "max-message-hev.yaml")
                 config.writeText(
                     "tunnel:\n  mtu: 1280\n  ipv4: 10.83.0.3\n  icmp: 'off'\n" +
                     "socks5:\n  address: 127.0.0.1\n  port: $port\n  udp: 'udp'\n" +
+                    "mapdns:\n  address: 198.18.0.2\n  port: 53\n" +
+                    "  network: 100.64.0.0\n  netmask: 255.192.0.0\n" +
                     "misc:\n  log-level: warn\n  max-session-count: 8\n"
                 )
                 stage = "native"

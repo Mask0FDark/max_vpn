@@ -179,6 +179,12 @@ class MainActivity : Activity() {
                 }
             }, "maxvpn-native-smoke").start()
         }
+        // ADB-only isolation: route shell test traffic, not background apps.
+        if (BuildConfig.DEBUG && intent?.hasExtra("maxvpn_shell_only") == true) {
+            getSharedPreferences("vpn-private-settings", MODE_PRIVATE).edit()
+                .putBoolean("vpn_shell_only", intent.getBooleanExtra("maxvpn_shell_only", false))
+                .apply()
+        }
         // Opt-in MAX Web diagnostic (legacy).
         if (startProbe) startMaxProbe()
         if (BuildConfig.DEBUG && intent?.getBooleanExtra("maxvpn_start", false) == true) {
