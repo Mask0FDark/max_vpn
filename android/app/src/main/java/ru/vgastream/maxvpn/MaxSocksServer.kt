@@ -18,8 +18,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Loopback SOCKS5 over authenticated MAX messages.
- * No direct VPS WebSocket is used. Single-flight MAX RPC deliberately limits
- * throughput; the relay is not enabled until a live MAX roundtrip succeeds.
+ * No direct VPS WebSocket is used. MAX RPCs are bounded and multiplexed;
+ * the relay is not enabled until a live MAX roundtrip succeeds.
  */
 class MaxSocksServer(private val rpc: MaxRpcClient) {
     private val active = AtomicBoolean(false)
@@ -178,16 +178,32 @@ class MaxSocksServer(private val rpc: MaxRpcClient) {
             response(output, 0)
             socket.soTimeout = 350
             val buffer = ByteArray(512)
+            var idleReads = 0
             while (active.get() && !socket.isClosed) {
                 try {
                     val n = input.read(buffer)
                     if (n == -1) break
-                    if (n > 0) rpc.write(session, buffer.copyOf(n))
+                    if (n > 0) {
+                        rpc.write(session, buffer.copyOf(n))
+                        idleReads = 0
+                    }
                 } catch (_: SocketTimeoutException) { }
                 val (state, incoming) = rpc.read(session)
                 if (incoming.isNotEmpty()) {
                     output.write(incoming)
                     output.flush()
+                    idleReads = 0
+                } else if (state == "timeout") {
+                    // A remote TCP read costs two MAX chat messages, even
+                    // when no data is ready. Increasing idle backoff prevents
+                    // Chrome's dormant sockets from exhausting message quotas.
+                    idleReads = minOf(idleReads + 1, 6)
+                    val pause = minOf(4_000L, 400L shl minOf(idleReads, 4))
+                    if (input.available() == 0 && active.get()) {
+                        Thread.sleep(pause)
+                    }
+                } else {
+                    idleReads = 0
                 }
                 if (state == "eof") break
             }
