@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -37,15 +38,30 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Local USB-only developer provisioning after the required signing-key
-        // migration. The token never goes into the APK, logs or public repo.
+        // One-time USB developer pairing without exposing the long-term token.
+        // The private file is writable only under the app's debuggable UID.
+        var startProbe = BuildConfig.DEBUG &&
+            intent?.getBooleanExtra("maxvpn_probe", false) == true
         if (BuildConfig.DEBUG) {
-            val bootstrap = File(filesDir, "adb-bootstrap-token")
+            val bootstrap = File(filesDir, "adb-bootstrap-code")
             if (bootstrap.isFile) {
-                try {
-                    RelaySettings.save(applicationContext, bootstrap.readText().trim())
-                } finally {
-                    bootstrap.delete()
+                val code = try { bootstrap.readText().trim() }
+                    finally { bootstrap.delete() }
+                if (Regex("[0-9a-fA-F]{24}").matches(code)) {
+                    val probeAfterPair = startProbe
+                    startProbe = false
+                    Thread({
+                        try {
+                            RelaySettings.pair(applicationContext, code)
+                            Log.i("MaxMessageVpn", "USB_PAIRING_OK")
+                            runOnUiThread {
+                                refreshStatus()
+                                if (probeAfterPair) startMaxProbe()
+                            }
+                        } catch (error: Exception) {
+                            Log.e("MaxMessageVpn", "USB_PAIRING_FAILED", error)
+                        }
+                    }, "maxvpn-usb-pair").start()
                 }
             }
         }
@@ -151,12 +167,14 @@ class MainActivity : Activity() {
         refreshStatus()
         // Opt-in ADB diagnostic for development builds. Performs only a MAX
         // request/reply preflight; never establishes a TUN interface.
-        if (BuildConfig.DEBUG && intent?.getBooleanExtra("maxvpn_probe", false) == true) {
-            val probe = Intent(this, MaxMessageVpnService::class.java)
-                .setAction(MaxMessageVpnService.PROBE)
-            if (Build.VERSION.SDK_INT >= 26) startForegroundService(probe)
-            else startService(probe)
-        }
+        if (startProbe) startMaxProbe()
+    }
+
+    private fun startMaxProbe() {
+        val probe = Intent(this, MaxMessageVpnService::class.java)
+            .setAction(MaxMessageVpnService.PROBE)
+        if (Build.VERSION.SDK_INT >= 26) startForegroundService(probe)
+        else startService(probe)
     }
 
     private fun startMax() {
