@@ -70,17 +70,33 @@ class MaxWebChatTransport(
                 editor.focus();
                 document.execCommand('selectAll', false, null);
                 if (!document.execCommand('insertText', false, $escapedFrame)) return false;
-                const button = Array.from(document.querySelectorAll('button'))
-                  .find(b => /^(send message|отправить сообщение)$/i.test(
-                    (b.getAttribute('aria-label') || '').trim()
-                  ));
-                if (!button || button.disabled) return false;
-                button.click();
-                return true;
+                return (editor.textContent || '').includes($escapedFrame);
               })()
             """.trimIndent()
-            web.evaluateJavascript(script) { response ->
-                callback(response == "true")
+            web.evaluateJavascript(script) { inserted ->
+                if (inserted != "true") {
+                    callback(false)
+                    return@evaluateJavascript
+                }
+                // MAX Web renders its send control after the editor's input
+                // update. The control has a stable #icon_send glyph, not the
+                // old English/Russian aria-label selector.
+                main.postDelayed({
+                    if (!trustedChat()) {
+                        callback(false)
+                        return@postDelayed
+                    }
+                    web.evaluateJavascript("""
+                      (() => {
+                        const button = document.querySelector(
+                          'button:has(use[href="#icon_send"])'
+                        );
+                        if (!button || button.disabled) return false;
+                        button.click();
+                        return true;
+                      })()
+                    """.trimIndent()) { sent -> callback(sent == "true") }
+                }, 300L)
             }
         }
     }
