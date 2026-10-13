@@ -76,7 +76,7 @@ internal class NativeMaxProbe(private val context: Context) {
             else {
                 val expanded = length * factor
                 require(expanded in 1..8_000_000)
-                LZ4Factory.safeInstance().fastDecompressor().decompress(raw, expanded)
+                LZ4Factory.safeInstance().safeDecompressor().decompress(raw, expanded)
             }
         return Frame(header[1].toInt() and 255, seq, op, body)
     }
