@@ -106,18 +106,11 @@ class MaxMessageVpnService : VpnService() {
                     .addAddress("10.83.0.3", 32)
                     .addRoute("0.0.0.0", 0)
                     .addDnsServer("198.18.0.2")
-                if (BuildConfig.DEBUG && getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
-                        .getBoolean("vpn_shell_only", false)) {
-                    builder.addAllowedApplication("com.android.shell")
-                    Log.i("MaxNative", "MAX_SHELL_ONLY_TEST_ENABLED")
-                } else if (BuildConfig.DEBUG &&
-                    getSharedPreferences("vpn-private-settings", MODE_PRIVATE)
-                        .getBoolean("vpn_browser_only", false)) {
-                    builder.addAllowedApplication("com.android.chrome")
-                    Log.i("MaxNative", "MAX_CHROME_ONLY_TEST_ENABLED")
-                } else {
-                    builder.addDisallowedApplication(packageName)
-                }
+                // Per-app allowlist is the actual connection policy, not a
+                // debug-only override. Any old Chrome/shell-only preferences
+                // are ignored, and a missing Firefox fails closed.
+                val firefoxPackage = FirefoxVpnRouting.configure(builder)
+                Log.i("MaxNative", "MAX_FIREFOX_ONLY package=" + firefoxPackage)
                 tun = builder.establish()
                     ?: error("Failed to create Android VPN interface")
                 val config = File(filesDir, "max-message-hev.yaml")
@@ -140,7 +133,7 @@ class MaxMessageVpnService : VpnService() {
                 if (!confirmed) error("Native VPN engine did not remain active")
                 if (running.get()) {
                     stage = "connected"
-                    status = "MAX VPN подключён: трафик через MAX (эксперимент)"
+                    status = "MAX VPN подключён: только Firefox через MAX"
                     Log.i("MaxNative", "MAX_ANDROID_TUN_CONNECTED")
                 }
             } catch (e: Throwable) {
