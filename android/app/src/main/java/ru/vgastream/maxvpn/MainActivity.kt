@@ -82,7 +82,7 @@ class MainActivity : Activity() {
         root.addView(status)
 
         maxButton = Button(this).apply {
-            text = "Подключить через MAX"
+            text = "Подключить Firefox через MAX"
             setOnClickListener {
                 if (MaxMessageVpnService.connected() || MaxMessageVpnService.busy()) {
                     startService(Intent(this@MainActivity, MaxMessageVpnService::class.java)
@@ -97,14 +97,11 @@ class MainActivity : Activity() {
             }
         }
         root.addView(maxButton)
-        root.addView(info("Вход в MAX: номер → SMS-код → пароль, если его запросит MAX. Сессия сохраняется на VPS.", 14f))
+        root.addView(info("Только Firefox направляется через MAX. Остальные приложения используют обычный интернет.", 14f))
+        root.addView(info("MAX работает через сохранённую сессию, без входа в MAX Web.", 14f))
         root.addView(Button(this).apply {
             text = "Войти в MAX по номеру телефона"
             setOnClickListener { startActivity(Intent(this@MainActivity, MaxPhoneLoginActivity::class.java)) }
-        })
-        root.addView(Button(this).apply {
-            text = "Войти в MAX Web для VPN"
-            setOnClickListener { startActivity(Intent(this@MainActivity, MaxWebLoginActivity::class.java)) }
         })
 
         root.addView(Button(this).apply {
@@ -179,17 +176,6 @@ class MainActivity : Activity() {
                 }
             }, "maxvpn-native-smoke").start()
         }
-        // ADB-only isolation: route shell test traffic, not background apps.
-        if (BuildConfig.DEBUG && intent?.hasExtra("maxvpn_shell_only") == true) {
-            getSharedPreferences("vpn-private-settings", MODE_PRIVATE).edit()
-                .putBoolean("vpn_shell_only", intent.getBooleanExtra("maxvpn_shell_only", false))
-                .apply()
-        }
-        if (BuildConfig.DEBUG && intent?.hasExtra("maxvpn_browser_only") == true) {
-            getSharedPreferences("vpn-private-settings", MODE_PRIVATE).edit()
-                .putBoolean("vpn_browser_only", intent.getBooleanExtra("maxvpn_browser_only", false))
-                .apply()
-        }
         // Opt-in MAX Web diagnostic (legacy).
         if (startProbe) startMaxProbe()
         if (BuildConfig.DEBUG && intent?.getBooleanExtra("maxvpn_start", false) == true) {
@@ -229,7 +215,7 @@ class MainActivity : Activity() {
         val token = try { RelaySettings.load(this) } catch (_: Exception) { "" }
         maxButton.isEnabled = token.length >= 40
         maxButton.text = if (MaxMessageVpnService.connected() || MaxMessageVpnService.busy())
-            "Отключить MAX VPN" else "Подключить через MAX"
+            "Отключить MAX VPN" else "Подключить Firefox через MAX"
         status.text = if (token.length < 40) "● Сначала привяжи VPS" else
             "● " + MaxMessageVpnService.status
     }
