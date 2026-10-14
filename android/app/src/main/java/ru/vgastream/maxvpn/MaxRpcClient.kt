@@ -110,7 +110,9 @@ class MaxRpcClient(
                             minOf(20_000L, remainingMillis())
                         ) { done -> chat.sendFrame(frame, done) }
                         if (!sent) {
-                            throw IllegalStateException("MAX API rejected encrypted frame")
+                            throw IllegalStateException(
+                                "MAX frame not acknowledged; inspect MaxNative log for rate limit, vendor rejection or timeout"
+                            )
                         }
                     }
                 } finally {
