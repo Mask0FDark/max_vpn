@@ -36,6 +36,7 @@ internal class NativeMaxChatTransport private constructor(
     private val frames = ArrayDeque<String>()
     private val framesLock = Any()
     private val outputLock = Any()
+    private val pacer = MaxSendPacer()
     private val input = DataInputStream(socket.inputStream)
 
     private class Pending {
@@ -193,15 +194,38 @@ internal class NativeMaxChatTransport private constructor(
         }
     }
 
+    private fun rejectionCategory(response: Frame): String {
+        // Only inspect fixed vendor error identifiers; never log message
+        // content, session tokens, peers or account data.
+        val packed = String(response.body, Charsets.UTF_8).lowercase()
+        return when {
+            "too.many.requests" in packed || "rate.limit" in packed ||
+                "too many requests" in packed || "слишком много запросов" in packed ->
+                "rate_limit"
+            "chat.not.found" in packed -> "chat_not_found"
+            "token.invalid" in packed || "invalid.token" in packed ->
+                "session_invalid"
+            else -> "other"
+        }
+    }
+
     override fun sendFrame(frame: String, callback: (Boolean) -> Unit) {
         if (!frame.startsWith("M0FD-TUNNEL-V1:") || frame.length > 4000 || !live.get()) {
+            Log.w("MaxNative", "MAX_API_SEND_SKIPPED bad_frame_or_connection")
             callback(false)
             return
         }
         val seq = sequence.getAndUpdate { (it + 1) and 65535 }
         val future = Pending()
-        pending[seq] = future
         try {
+            // Firefox may open many sockets simultaneously. Every MAX message
+            // for this account goes through the same pacing gate.
+            if (!pacer.waitForSlot { live.get() }) {
+                Log.w("MaxNative", "MAX_API_SEND_COOLDOWN_OR_DISCONNECTED")
+                callback(false)
+                return
+            }
+            pending[seq] = future
             send(seq, 64, mapOf(
                 "chatId" to chatId,
                 "message" to mapOf(
@@ -212,9 +236,24 @@ internal class NativeMaxChatTransport private constructor(
                 "notify" to false
             ))
             val done = future.completed.await(18, TimeUnit.SECONDS)
-            callback(done && future.result?.command == 1)
+            if (!done || future.result == null) {
+                Log.e("MaxNative", "MAX_API_SEND_ACK_TIMEOUT_OR_CLOSED")
+                callback(false)
+                return
+            }
+            val reply = future.result!!
+            if (reply.command != 1) {
+                val reason = rejectionCategory(reply)
+                pacer.rejected(reason == "rate_limit")
+                Log.e("MaxNative", "MAX_API_SEND_REJECTED command=${reply.command} " +
+                    "opcode=${reply.opcode} category=$reason")
+                callback(false)
+                return
+            }
+            pacer.accepted()
+            callback(true)
         } catch (error: Exception) {
-            Log.e("MaxNative", "MAX_API_SEND_FAILURE", error)
+            Log.e("MaxNative", "MAX_API_SEND_EXCEPTION " + error.javaClass.simpleName)
             callback(false)
         } finally {
             pending.remove(seq)
